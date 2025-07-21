@@ -2,7 +2,7 @@
 
 Trace collective operations for distributed training.
 
-## Develop
+## 0x01 Develop
 
 ```bash
 # Develop
@@ -14,18 +14,27 @@ cd ..
 torchrun --nproc_per_node=4 -m collective_trace.tests.test_in_torch
 ```
 
-## Usage
+## 0x02 Usage
+
+```bash
+# Install
+git clone https://github.com/yangrudan/collective_trace.git
+cd collective_trace
+pip install -e .
+```
+
+Manual update training code:
 
 ```python
 import torch
 import torch.distributed as dist
-from collective_trace.collective_trace import trace_collective
+
+from collective_trace.collective_trace import trace_all_collectives
 
 trace_all_collectives(trace_file='collective_trace.log')
 
 import megatron  # Megatron此时导入的是已替换的函数
 # Your training code here
-
 
 ```
 
