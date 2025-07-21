@@ -2,7 +2,7 @@ import torch
 import torch.distributed as dist
 import time
 from functools import wraps
-import inspect
+
 
 class CollectiveTracer:
     """
@@ -35,35 +35,77 @@ class CollectiveTracer:
     
     def _trace_wrapper(self, func_name, orig_func):
         """Create a wrapper for the original function to trace its execution."""
+        class TimedWork:
+            def __init__(self, work, start_time, func_name, data_size, tensor_info=None):
+                self.work = work
+                self.start_time = start_time
+                self.func_name = func_name
+                self.data_size = data_size
+                self.tensor_info = tensor_info if tensor_info else {'shape': 'unknown', 'dtype': 'unknown', 'size': 0}
+                
+            def wait(self):
+                result = self.work.wait()
+                end_time = time.time()
+                duration = end_time - self.start_time
+                
+                # Create a trace entry
+                trace_entry = {
+                    'function': func_name,
+                    'timestamp': self.start_time,
+                    'duration': duration,
+                    'tensor_shape': self.tensor_info['shape'],
+                    'tensor_dtype': str(self.tensor_info['dtype']),
+                    'tensor_size': self.tensor_info['size']
+                }
+                self.trace_data.append(trace_entry)
+                
+                # Print trace information
+                self._log(f"[TRACE] {func_name} - Shape: {self.tensor_info['shape']}, "
+                        f"Dtype: {self.tensor_info['dtype']}, Size: {self.tensor_info['size']/1024/1024:.2f} MB, "
+                        f"Duration: {duration*1000:.2f} ms")
+                
+                return result
+            
+            def is_completed(self):
+                return self.work.is_completed()
+            
         @wraps(orig_func)
         def wrapper(*args, **kwargs):
-            # Extract tensor information from arguments
             tensor_info = self._extract_tensor_info(args, kwargs)
-            
+
             start_time = time.time()
-        
-            result = orig_func(*args, **kwargs)
+            tensor = args[0] if args else None
+            print(f"tensor.numel={tensor.numel()}   tensor.element_size={tensor.element_size()}\n")
+            data_size = tensor.numel() * tensor.element_size() if tensor is not None else 0
             
-            end_time = time.time()
-            duration = end_time - start_time
-            
-            # Create a trace entry
-            trace_entry = {
-                'function': func_name,
-                'timestamp': start_time,
-                'duration': duration,
-                'tensor_shape': tensor_info['shape'],
-                'tensor_dtype': str(tensor_info['dtype']),
-                'tensor_size': tensor_info['size']
-            }
-            self.trace_data.append(trace_entry)
-            
-            # Print trace information
-            self._log(f"[TRACE] {func_name} - 形状: {tensor_info['shape']}, "
-                     f"类型: {tensor_info['dtype']}, 大小: {tensor_info['size']/1024/1024:.2f} MB, "
-                     f"耗时: {duration*1000:.2f} ms")
-            
-            return result
+            is_async = kwargs.get('async_op', False)
+            if is_async:
+                work = orig_func(*args, **kwargs)
+
+
+                return TimedWork(work, start_time, func_name, data_size)
+            else:
+                work = orig_func(*args, **kwargs)
+                
+                end_time = time.time()
+                duration = end_time - start_time
+                
+                # Create a trace entry
+                trace_entry = {
+                    'function': func_name,
+                    'timestamp': start_time,
+                    'duration': duration,
+                    'tensor_shape': tensor_info['shape'],
+                    'tensor_dtype': str(tensor_info['dtype']),
+                    'tensor_size': tensor_info['size']
+                }
+                self.trace_data.append(trace_entry)
+                
+                # Print trace information
+                self._log(f"[TRACE] {func_name} - Shape: {tensor_info['shape']}, "
+                        f"Dtype: {tensor_info['dtype']}, Size: {tensor_info['size']/1024/1024:.2f} MB, "
+                        f"Duration: {duration*1000:.2f} ms")
+                return work
         
         return wrapper
     
@@ -110,13 +152,13 @@ class CollectiveTracer:
             if hasattr(dist, func_name):
                 self.original_functions[func_name] = getattr(dist, func_name)
                 setattr(dist, func_name, self._trace_wrapper(func_name, orig_func))
-                self._log(f"已替换函数: {func_name}")
+                self._log(f"Applyed hook to function: {func_name}")
     
     def remove_hooks(self):
         for func_name, orig_func in self.original_functions.items():
             if hasattr(dist, func_name):
                 setattr(dist, func_name, orig_func)
-                self._log(f"已恢复函数: {func_name}")
+                self._log(f"Removed hook from function: {func_name}")
     
     def get_trace_data(self):
         return self.trace_data
@@ -124,7 +166,7 @@ class CollectiveTracer:
     def export_to_csv(self, filename):
         import csv
         if not self.trace_data:
-            self._log("没有追踪数据可导出")
+            self._log("No trace data to export.")
             return
             
         with open(filename, 'w', newline='') as csvfile:
@@ -134,4 +176,4 @@ class CollectiveTracer:
             for row in self.trace_data:
                 writer.writerow(row)
                 
-        self._log(f"追踪数据已导出到: {filename}")
+        self._log(f"Exported trace data to {filename}")
