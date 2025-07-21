@@ -94,7 +94,7 @@ class CollectiveTracer:
                 end_time = time.time()
                 duration = end_time - start_time
                 
-                trace_entry = self._create_trace_entry(func_name, start_time, duration, tensor_info)
+                trace_entry = self.create_trace_entry(func_name, start_time, duration, tensor_info)
                 self.trace_data.append(trace_entry)
                 
                 # Print trace information
