@@ -61,8 +61,8 @@ class CollectiveTracer:
                 duration = end_time - self.start_time
                 
                 # Create a trace entry
-                self.tracer.create_trace_entry(func_name, self.start_time, duration, self.tensor_info)
-                self.tracer.trace_data.append(self.trace_entry)
+                trace_entry = self.tracer.create_trace_entry(func_name, self.start_time, duration, self.tensor_info)
+                self.tracer.trace_data.append(trace_entry)
                 
                 # Print trace information
                 self.tracer._log(f"[TRACE] {func_name} - Shape: {self.tensor_info['shape']}, "

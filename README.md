@@ -18,15 +18,15 @@ torchrun --nproc_per_node=4 -m collective_trace.tests.test_in_torch
 
 ```python
 import torch
-from collective_trace import CollectiveTracer
+import torch.distributed as dist
+from collective_trace.collective_trace import trace_collective
 
-tracer = CollectiveTracer(trace_file="trace.csv", verbose=True)
-tracer.apply_hooks()
+trace_all_collectives(trace_file='collective_trace.log')
 
+import megatron  # Megatron此时导入的是已替换的函数
 # Your training code here
 
-tracer.remove_hooks()
-tracer.export_to_csv("trace.csv")
+
 ```
 
 **Prototype**
