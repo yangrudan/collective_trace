@@ -1,0 +1,2 @@
+# collective_trace
+通过补丁对torch中集合通信原语进行性能追踪
