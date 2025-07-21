@@ -5,7 +5,7 @@ import os
 import time
 from functools import wraps
 
-from collective_trace import trace_all_collectives
+from collective_trace.collective_trace import trace_all_collectives
 
 # 启用追踪
 tracer = trace_all_collectives(trace_file='collective_trace.log')

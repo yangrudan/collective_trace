@@ -2,7 +2,7 @@
 
 Trace collective operations for distributed training.
 
-## Usage
+## Develop
 
 ```bash
 # Develop
@@ -14,9 +14,26 @@ cd ..
 torchrun --nproc_per_node=4 -m collective_trace.tests.test_in_torch
 ```
 
-**Results**
-![Results](docs/image2.png)
+## Usage
 
-## Prototype
+```python
+import torch
+from collective_trace import CollectiveTracer
 
-![Prototype](docs/image1.png)
+tracer = CollectiveTracer(trace_file="trace.csv", verbose=True)
+tracer.apply_hooks()
+
+# Your training code here
+
+tracer.remove_hooks()
+tracer.export_to_csv("trace.csv")
+```
+
+**Prototype**
+![Example](docs/image1.png)
+
+**version 0.0**
+![Trace](docs/image2.png)
+
+**version 0.1 Results**
+![Results](docs/image3.png)

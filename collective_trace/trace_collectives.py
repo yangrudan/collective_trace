@@ -57,10 +57,10 @@ class CollectiveTracer:
                     'tensor_dtype': str(self.tensor_info['dtype']),
                     'tensor_size': self.tensor_info['size']
                 }
-                self.trace_data.append(trace_entry)
+                #self.trace_data.append(trace_entry)
                 
                 # Print trace information
-                self._log(f"[TRACE] {func_name} - Shape: {self.tensor_info['shape']}, "
+                self.print(f"[TRACE] {func_name} - Shape: {self.tensor_info['shape']}, "
                         f"Dtype: {self.tensor_info['dtype']}, Size: {self.tensor_info['size']/1024/1024:.2f} MB, "
                         f"Duration: {duration*1000:.2f} ms")
                 
@@ -82,8 +82,7 @@ class CollectiveTracer:
             if is_async:
                 work = orig_func(*args, **kwargs)
 
-
-                return TimedWork(work, start_time, func_name, data_size)
+                return TimedWork(work, start_time, func_name, data_size, tensor_info)
             else:
                 work = orig_func(*args, **kwargs)
                 
