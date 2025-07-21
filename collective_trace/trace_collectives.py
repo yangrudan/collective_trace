@@ -33,15 +33,27 @@ class CollectiveTracer:
             with open(self.trace_file, 'a') as f:
                 f.write(message + '\n')
     
+    def create_trace_entry(self, func_name, start_time, duration, tensor_info):
+        """Create a trace entry."""
+        return {
+            'function': func_name,
+            'timestamp': start_time,
+            'duration': duration,
+            'tensor_shape': tensor_info['shape'],
+            'tensor_dtype': str(tensor_info['dtype']),
+            'tensor_size': tensor_info['size']
+        }
+    
     def _trace_wrapper(self, func_name, orig_func):
         """Create a wrapper for the original function to trace its execution."""
         class TimedWork:
-            def __init__(self, work, start_time, func_name, data_size, tensor_info=None):
+            def __init__(self, work, start_time, func_name, data_size, tensor_info=None, Tracer=None):
                 self.work = work
                 self.start_time = start_time
                 self.func_name = func_name
                 self.data_size = data_size
                 self.tensor_info = tensor_info if tensor_info else {'shape': 'unknown', 'dtype': 'unknown', 'size': 0}
+                self.tracer = Tracer
                 
             def wait(self):
                 result = self.work.wait()
@@ -49,18 +61,11 @@ class CollectiveTracer:
                 duration = end_time - self.start_time
                 
                 # Create a trace entry
-                trace_entry = {
-                    'function': func_name,
-                    'timestamp': self.start_time,
-                    'duration': duration,
-                    'tensor_shape': self.tensor_info['shape'],
-                    'tensor_dtype': str(self.tensor_info['dtype']),
-                    'tensor_size': self.tensor_info['size']
-                }
-                #self.trace_data.append(trace_entry)
+                self.tracer.create_trace_entry(func_name, self.start_time, duration, self.tensor_info)
+                self.tracer.trace_data.append(self.trace_entry)
                 
                 # Print trace information
-                self.print(f"[TRACE] {func_name} - Shape: {self.tensor_info['shape']}, "
+                self.tracer._log(f"[TRACE] {func_name} - Shape: {self.tensor_info['shape']}, "
                         f"Dtype: {self.tensor_info['dtype']}, Size: {self.tensor_info['size']/1024/1024:.2f} MB, "
                         f"Duration: {duration*1000:.2f} ms")
                 
@@ -82,22 +87,14 @@ class CollectiveTracer:
             if is_async:
                 work = orig_func(*args, **kwargs)
 
-                return TimedWork(work, start_time, func_name, data_size, tensor_info)
+                return TimedWork(work, start_time, func_name, data_size, tensor_info, self)
             else:
                 work = orig_func(*args, **kwargs)
                 
                 end_time = time.time()
                 duration = end_time - start_time
                 
-                # Create a trace entry
-                trace_entry = {
-                    'function': func_name,
-                    'timestamp': start_time,
-                    'duration': duration,
-                    'tensor_shape': tensor_info['shape'],
-                    'tensor_dtype': str(tensor_info['dtype']),
-                    'tensor_size': tensor_info['size']
-                }
+                trace_entry = self._create_trace_entry(func_name, start_time, duration, tensor_info)
                 self.trace_data.append(trace_entry)
                 
                 # Print trace information
