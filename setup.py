@@ -5,10 +5,10 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
-    name="megatron-trace",
+    name="collective-trace",
     version="0.1.0",
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="Cookie Yang",
+    author_email="yangrudan@zhejianglab.org",
     description="A monkey-patching tool for tracing collective operations",
     long_description=long_description,
     long_description_content_type="text/markdown",
