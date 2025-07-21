@@ -38,11 +38,11 @@ import megatron  # Megatron此时导入的是已替换的函数
 
 ```
 
-**Prototype**
+<!-- **Prototype**
 ![Example](docs/image1.png)
 
 **version 0.0**
-![Trace](docs/image2.png)
+![Trace](docs/image2.png) -->
 
 **version 0.1 Results**
 ![Results](docs/image3.png)
