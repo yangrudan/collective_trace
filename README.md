@@ -1,2 +1,12 @@
 # collective_trace
-通过补丁对torch中集合通信原语进行性能追踪
+
+Trace collective operations for distributed training.
+
+## Usage
+
+```bash
+# Install
+git clone https://github.com/yourusername/megatron-trace.git
+cd megatron-trace
+pip install -e .
+```
