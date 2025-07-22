@@ -41,6 +41,8 @@ def main():
     # 导出追踪数据
     global tracer
     tracer.export_to_csv(f"aaa_{rank}.txt")
+    
+    print(tracer.get_all_call_counts())
 
     dist.destroy_process_group()
 

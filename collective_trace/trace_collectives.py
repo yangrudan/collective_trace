@@ -24,6 +24,7 @@ class CollectiveTracer:
             'reduce_scatter': dist.reduce_scatter,
             'broadcast': dist.broadcast
         }
+        self.call_counts = {fn: 0 for fn in self.hooked_functions}
         
     def _log(self, message):
         """Log a message to console and/or file."""
@@ -76,6 +77,10 @@ class CollectiveTracer:
             
         @wraps(orig_func)
         def wrapper(*args, **kwargs):
+            # ------------ Collective Counts +1 ------------
+            self.call_counts[func_name] += 1
+            # --------------------------------
+
             tensor_info = self._extract_tensor_info(args, kwargs)
 
             start_time = time.time()
@@ -158,6 +163,9 @@ class CollectiveTracer:
     
     def get_trace_data(self):
         return self.trace_data
+    
+    def get_all_call_counts(self):
+        return self.call_counts.copy()
     
     def export_to_csv(self, filename):
         import csv
