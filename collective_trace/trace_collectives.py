@@ -22,7 +22,12 @@ class CollectiveTracer:
             'all_reduce': dist.all_reduce,
             'all_gather': dist.all_gather,
             'reduce_scatter': dist.reduce_scatter,
-            'broadcast': dist.broadcast
+            'broadcast': dist.broadcast,
+            'reduce_scatter_base': dist.reduce_scatter_base,
+            'all_gather_base': dist.all_gather_base,
+            'reduce_scatter_tensor': dist.reduce_scatter_tensor,
+            'all_gather_into_tensor': dist.all_gather_into_tensor,
+            'batch_isend_irecv': dist.batch_isend_irecv
         }
         self.call_counts = {fn: 0 for fn in self.hooked_functions}
         
