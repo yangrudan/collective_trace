@@ -20,8 +20,9 @@ function_names = [
     'all_gather_base',
     'reduce_scatter_tensor',
     'all_gather_into_tensor',
-    'batch_isend_irecv'
 ]
+
+# 'batch_isend_irecv'
 
 
 class CollectiveTracer:
