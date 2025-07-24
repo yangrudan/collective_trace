@@ -4,6 +4,26 @@ import time
 from functools import wraps
 
 
+"""
+export PYTHONPATH=/home/yang:$PYTHONPATH  # 设置环境变量
+
+import sys
+sys.path.insert(0, '/home/yang')  # 把 /home/yang 路径添加到搜索路径的最前面
+"""
+
+function_names = [
+    'all_reduce',
+    'all_gather',
+    'reduce_scatter',
+    'broadcast',
+    'reduce_scatter_base',
+    'all_gather_base',
+    'reduce_scatter_tensor',
+    'all_gather_into_tensor',
+    'batch_isend_irecv'
+]
+
+
 class CollectiveTracer:
     """
     Trace collective operations for distributed training.
@@ -18,17 +38,17 @@ class CollectiveTracer:
         self.verbose = verbose
         self.trace_data = []
         self.original_functions = {}
-        self.hooked_functions = {
-            'all_reduce': dist.all_reduce,
-            'all_gather': dist.all_gather,
-            'reduce_scatter': dist.reduce_scatter,
-            'broadcast': dist.broadcast,
-            'reduce_scatter_base': dist.reduce_scatter_base,
-            'all_gather_base': dist.all_gather_base,
-            'reduce_scatter_tensor': dist.reduce_scatter_tensor,
-            'all_gather_into_tensor': dist.all_gather_into_tensor,
-            'batch_isend_irecv': dist.batch_isend_irecv
-        }
+        self.hooked_functions = {}
+
+        for func_name in function_names:
+            if hasattr(dist, func_name):
+                self.hooked_functions[func_name] = getattr(dist, func_name)
+            else:
+                print(f"!!! torch.distributed 中未找到函数 {func_name}，已跳过")
+
+        if not self.hooked_functions:
+            print("!!! WARNING !!! 没有找到任何要追踪的函数")
+
         self.call_counts = {fn: 0 for fn in self.hooked_functions}
         
     def _log(self, message):
