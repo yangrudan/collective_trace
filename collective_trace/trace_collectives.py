@@ -40,6 +40,8 @@ class CollectiveTracer:
         self.trace_data = []
         self.original_functions = {}
         self.hooked_functions = {}
+        self.has_cuda = torch.cuda.is_available()
+        self.rank = dist.get_rank()
 
         for func_name in function_names:
             if hasattr(dist, func_name):
@@ -57,7 +59,8 @@ class CollectiveTracer:
         if self.verbose:
             print(message)
         if self.trace_file:
-            with open(self.trace_file, 'a') as f:
+            ranked_filename = f"{self.trace_file}-{self.rank}"
+            with open(ranked_filename, 'a') as f:
                 f.write(message + '\n')
     
     def create_trace_entry(self, func_name, start_time, duration, tensor_info):
@@ -84,6 +87,10 @@ class CollectiveTracer:
                 
             def wait(self):
                 result = self.work.wait()
+
+                if self.tracer.has_cuda:
+                    _cuda_sync()
+
                 end_time = time.time()
                 duration = end_time - self.start_time
                 
@@ -109,6 +116,8 @@ class CollectiveTracer:
 
             tensor_info = self._extract_tensor_info(args, kwargs)
 
+            if self.has_cuda:
+                _cuda_sync()
             start_time = time.time()
             tensor = args[0] if args else None
             print(f"tensor.numel={tensor.numel()}   tensor.element_size={tensor.element_size()}\n")
@@ -122,6 +131,9 @@ class CollectiveTracer:
             else:
                 work = orig_func(*args, **kwargs)
                 
+                if self.tracer.has_cuda:
+                    _cuda_sync()
+                    
                 end_time = time.time()
                 duration = end_time - start_time
                 
@@ -173,6 +185,7 @@ class CollectiveTracer:
             'dtype': tensor.dtype,
             'size': tensor.element_size() * tensor.numel()
         }
+     
     
     def apply_hooks(self):
         for func_name, orig_func in self.hooked_functions.items():
@@ -207,3 +220,6 @@ class CollectiveTracer:
                 writer.writerow(row)
                 
         self._log(f"Exported trace data to {filename}")
+
+def _cuda_sync():
+    torch.cuda.synchronize()
