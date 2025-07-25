@@ -7,8 +7,6 @@ from functools import wraps
 
 from collective_trace.collective_trace import trace_all_collectives
 
-# 启用追踪
-tracer = trace_all_collectives(trace_file='collective_trace.log')
 
 
 def main():
@@ -17,6 +15,10 @@ def main():
     args = parser.parse_args()
 
     dist.init_process_group(backend="nccl")
+
+    # 启用追踪
+    tracer = trace_all_collectives(trace_file='collective_trace.log')
+
     rank = dist.get_rank()
     torch.cuda.set_device(rank)
     device = torch.device(f"cuda:{rank}")
