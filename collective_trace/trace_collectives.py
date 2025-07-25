@@ -91,7 +91,7 @@ class CollectiveTracer:
                 if self.tracer.has_cuda:
                     _cuda_sync()
 
-                end_time = time.time()
+                end_time = time.perf_counter()
                 duration = end_time - self.start_time
                 
                 # Create a trace entry
@@ -101,8 +101,8 @@ class CollectiveTracer:
                 # Print trace information
                 self.tracer._log(f"[TRACE] {func_name} - Shape: {self.tensor_info['shape']}, "
                         f"Dtype: {self.tensor_info['dtype']}, Size: {self.tensor_info['size']/1024/1024:.2f} MB, "
-                        f"Duration: {duration*1000:.2f} ms")
-                
+                        f"Duration: {duration*1e3:.3f} ms")
+  
                 return result
             
             def is_completed(self):
@@ -118,7 +118,7 @@ class CollectiveTracer:
 
             if self.has_cuda:
                 _cuda_sync()
-            start_time = time.time()
+            start_time = time.perf_counter()
             tensor = args[0] if args else None
             print(f"tensor.numel={tensor.numel()}   tensor.element_size={tensor.element_size()}\n")
             data_size = tensor.numel() * tensor.element_size() if tensor is not None else 0
@@ -133,8 +133,8 @@ class CollectiveTracer:
                 
                 if self.tracer.has_cuda:
                     _cuda_sync()
-                    
-                end_time = time.time()
+
+                end_time = time.perf_counter()
                 duration = end_time - start_time
                 
                 trace_entry = self.create_trace_entry(func_name, start_time, duration, tensor_info)
@@ -143,7 +143,7 @@ class CollectiveTracer:
                 # Print trace information
                 self._log(f"[TRACE] {func_name} - Shape: {tensor_info['shape']}, "
                         f"Dtype: {tensor_info['dtype']}, Size: {tensor_info['size']/1024/1024:.2f} MB, "
-                        f"Duration: {duration*1000:.2f} ms")
+                        f"Duration: {duration*1e3:.3f} ms")
                 return work
         
         return wrapper
