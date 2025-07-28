@@ -22,5 +22,5 @@ jobs:
         python -c "import sys, collective_trace; print('collective_trace path:', collective_trace.__file__); print('sys.path:', sys.path)"
     - name: Test
       run: |
-        torchrun --nproc_per_node=4 -m collective_trace.tests.test_in_cpu
-        torchrun --nproc_per_node=4 -m collective_trace.tests.test_in_cpu --sync_mode 
+        PYTHONPATH=../ torchrun --nproc_per_node=4 tests/test_in_cpu.py --sync_mode
+        PYTHONPATH=../ torchrun --nproc_per_node=4 tests/test_in_cpu.py
