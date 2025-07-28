@@ -211,7 +211,7 @@ class CollectiveTracer:
             else:
                 work = orig_func(*args, **kwargs)
                 
-                if self.tracer.has_cuda:
+                if self.has_cuda:
                     _cuda_sync()
 
                 end_time = time.perf_counter()
