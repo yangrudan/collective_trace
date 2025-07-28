@@ -116,8 +116,6 @@ class CollectiveTracer:
         self.original_functions = {}
         self.hooked_functions = {}
         self.has_cuda = torch.cuda.is_available()
-        self.rank = dist.get_rank()
-
         for func_name in function_names:
             if hasattr(dist, func_name):
                 self.hooked_functions[func_name] = getattr(dist, func_name)
@@ -137,7 +135,7 @@ class CollectiveTracer:
         if self.verbose:
             print(message)
         if self.trace_file:
-            ranked_filename = f"{self.trace_file}-{self.rank}"
+            ranked_filename = f"{self.trace_file}-{self.my_rank}"
             with open(ranked_filename, 'a') as f:
                 f.write(message + '\n')
     
