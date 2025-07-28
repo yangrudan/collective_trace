@@ -39,7 +39,7 @@ def get_participating_ranks(group: Optional[dist.ProcessGroup] = None) ->  Tuple
     group_id = id(group)
     
     if group_id in GROUP_RANKS_CACHE:
-        return GROUP_RANKS_CACHE[group_id]
+        return group_rank, group_size, GROUP_RANKS_CACHE[group_id]
 
     
     # Method 1: Use all_gather_object to collect all ranks
