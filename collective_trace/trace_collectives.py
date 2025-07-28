@@ -29,17 +29,18 @@ GROUP_RANKS_CACHE = {}
 
 """
 This function returns a list of participating ranks within a given process group."""
-def get_participating_ranks(group: Optional[dist.ProcessGroup] = None) ->  Tuple[int, List[int]]:
+def get_participating_ranks(group: Optional[dist.ProcessGroup] = None) ->  Tuple[int, int, List[int]]:
+    group_rank = dist.get_rank(group=group)
+    group_size = dist.get_world_size(group=group)
+
     if group is None or group == dist.group.WORLD:
-        return list(range(dist.get_world_size()))
+        return group_rank, group_size, list(range(dist.get_world_size()))
     
     group_id = id(group)
     
     if group_id in GROUP_RANKS_CACHE:
         return GROUP_RANKS_CACHE[group_id]
-    
-    group_rank = dist.get_rank(group=group)
-    group_size = dist.get_world_size(group=group)
+
     
     # Method 1: Use all_gather_object to collect all ranks
     try:
@@ -48,7 +49,7 @@ def get_participating_ranks(group: Optional[dist.ProcessGroup] = None) ->  Tuple
         dist.all_gather_object(ranks_list, global_rank, group=group)
         ranks = [int(r) for r in ranks_list]
         GROUP_RANKS_CACHE[group_id] = ranks
-        return group_rank, ranks
+        return group_rank, group_size, ranks
     
     except Exception as e:
         print(f"[Rank {dist.get_rank()}] all_gather_object failed: {e}. Using fallback method.")
@@ -89,12 +90,12 @@ def get_participating_ranks(group: Optional[dist.ProcessGroup] = None) ->  Tuple
             store.delete_key(store_key)
         
         GROUP_RANKS_CACHE[group_id] = ranks
-        return group_rank, ranks
+        return group_rank, group_size, ranks
     
     except Exception as e:
         print(f"[Rank {rank}] Failed to get ranks via TCPStore: {e}")
         # If all methods fail, return a list of all ranks in the group
-        return group_rank, [dist.get_rank() for _ in range(group_size)]
+        return group_rank, group_size, [dist.get_rank() for _ in range(group_size)]
 
 class CollectiveTracer:
     """
@@ -125,6 +126,7 @@ class CollectiveTracer:
 
         self.call_counts = {fn: 0 for fn in self.hooked_functions}
         self.my_rank = 0
+        self.my_size = 1
         self.participate_ranks = []
         
     def _log(self, message):
@@ -174,7 +176,8 @@ class CollectiveTracer:
                 # Print trace information
                 self._log(f"[TRACE] I am {self.tracer.my_rank} && in GROUP_{self.tracer.participate_ranks} - {func_name} - Shape: {self.tensor_info['shape']}, "
                         f"Dtype: {self.tensor_info['dtype']}, Size: {self.tensor_info['size']/1024/1024:.2f} MB, "
-                        f"Duration: {duration*1e3:.3f} ms")
+                        f"Duration: {duration*1e3:.3f} ms, "
+                        f"size of coll is {self.tracer.my_size} ")
   
                 return result
             
@@ -197,7 +200,7 @@ class CollectiveTracer:
             data_size = tensor.numel() * tensor.element_size() if tensor is not None else 0
 
             group = kwargs.get('group') or (args[2] if len(args) > 2 else None)
-            self.my_rank, self.participate_ranks = get_participating_ranks(group)
+            self.my_rank, self.my_size, self.participate_ranks = get_participating_ranks(group)
             
             is_async = kwargs.get('async_op', False)
             if is_async:
@@ -219,7 +222,8 @@ class CollectiveTracer:
                 # Print trace information
                 self._log(f"[TRACE] I am {self.my_rank} && in GROUP_{self.participate_ranks} - {func_name} - Shape: {tensor_info['shape']}, "
                         f"Dtype: {tensor_info['dtype']}, Size: {tensor_info['size']/1024/1024:.2f} MB, "
-                        f"Duration: {duration*1e3:.3f} ms")
+                        f"Duration: {duration*1e3:.3f} ms, "
+                        f"size of coll is {self.my_size} ")
                 return work
         
         return wrapper
