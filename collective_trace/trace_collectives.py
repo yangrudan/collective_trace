@@ -30,6 +30,9 @@ GROUP_RANKS_CACHE = {}
 """
 This function returns a list of participating ranks within a given process group."""
 def get_participating_ranks(group: Optional[dist.ProcessGroup] = None) ->  Tuple[int, int, List[int]]:
+    if not dist.is_initialized():
+        return 0, 0, []
+
     group_rank = dist.get_rank(group=group)
     group_size = dist.get_world_size(group=group)
 
