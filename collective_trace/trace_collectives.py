@@ -126,16 +126,18 @@ class CollectiveTracer:
             print("!!! WARNING !!! 没有找到任何要追踪的函数")
 
         self.call_counts = {fn: 0 for fn in self.hooked_functions}
-        self.my_rank = 0
+        self.my_rank = 0  # partly rank in group
         self.my_size = 1
         self.participate_ranks = []
+
+        self.global_rank = 0
         
     def _log(self, message):
         """Log a message to console and/or file."""
         if self.verbose:
             print(message)
         if self.trace_file:
-            ranked_filename = f"{self.trace_file}-{self.my_rank}"
+            ranked_filename = f"{self.trace_file}-{self.global_rank}"
             with open(ranked_filename, 'a') as f:
                 f.write(message + '\n')
     
@@ -178,7 +180,7 @@ class CollectiveTracer:
                 self.tracer._log(f"[TRACE] I am {self.tracer.my_rank} && in GROUP_{self.tracer.participate_ranks} - {func_name} - Shape: {self.tensor_info['shape']}, "
                         f"Dtype: {self.tensor_info['dtype']}, Size: {self.tensor_info['size']/1024/1024:.2f} MB, "
                         f"Duration: {duration*1e3:.3f} ms, "
-                        f"size of coll is {self.tracer.my_size} ")
+                        f"size of coll is {self.tracer.my_size}  where the global rank is {self.tracer.global_rank}")
   
                 return result
             
@@ -202,6 +204,8 @@ class CollectiveTracer:
 
             group = kwargs.get('group') or (args[2] if len(args) > 2 else None)
             self.my_rank, self.my_size, self.participate_ranks = get_participating_ranks(group)
+
+            self.global_rank = dist.get_rank()
             
             is_async = kwargs.get('async_op', False)
             if is_async:
@@ -224,7 +228,7 @@ class CollectiveTracer:
                 self._log(f"[TRACE] I am {self.my_rank} && in GROUP_{self.participate_ranks} - {func_name} - Shape: {tensor_info['shape']}, "
                         f"Dtype: {tensor_info['dtype']}, Size: {tensor_info['size']/1024/1024:.2f} MB, "
                         f"Duration: {duration*1e3:.3f} ms, "
-                        f"size of coll is {self.my_size} ")
+                        f"size of coll is {self.my_size}  where the global rank is {self.global_rank}")
                 return work
         
         return wrapper
