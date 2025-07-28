@@ -44,7 +44,7 @@ def main():
         print(f"Rank {rank} [异步]all_reduce后梯度: {gradient.cpu().numpy()}")
     
     # Export trace data to CSV file                                                                                                                                                                    
-    tracer.export_to_csv(f"aaa_{rank}.txt")   
+    tracer.export_to_csv(f"aaa_{rank}.csv")   
 
     dist.destroy_process_group()
 

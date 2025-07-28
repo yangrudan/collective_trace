@@ -2,7 +2,7 @@ import torch
 import torch.distributed as dist
 import time
 from functools import wraps
-
+from typing import List, Optional, Union, Tuple
 
 """
 export PYTHONPATH=/home/yang:$PYTHONPATH  # 设置环境变量
@@ -24,6 +24,77 @@ function_names = [
 
 # 'batch_isend_irecv'
 
+# Store the group ranks for each function in a dictionary
+GROUP_RANKS_CACHE = {}
+
+"""
+This function returns a list of participating ranks within a given process group."""
+def get_participating_ranks(group: Optional[dist.ProcessGroup] = None) ->  Tuple[int, List[int]]:
+    if group is None or group == dist.group.WORLD:
+        return list(range(dist.get_world_size()))
+    
+    group_id = id(group)
+    
+    if group_id in GROUP_RANKS_CACHE:
+        return GROUP_RANKS_CACHE[group_id]
+    
+    group_rank = dist.get_rank(group=group)
+    group_size = dist.get_world_size(group=group)
+    
+    # Method 1: Use all_gather_object to collect all ranks
+    try:
+        ranks_list = [None] * group_size
+        global_rank = dist.get_rank()
+        dist.all_gather_object(ranks_list, global_rank, group=group)
+        ranks = [int(r) for r in ranks_list]
+        GROUP_RANKS_CACHE[group_id] = ranks
+        return group_rank, ranks
+    
+    except Exception as e:
+        print(f"[Rank {dist.get_rank()}] all_gather_object failed: {e}. Using fallback method.")
+    
+    # Method 2: Use TCPStore to collect all ranks
+    try:
+        rank = dist.get_rank()
+        world_size = dist.get_world_size()
+        
+        import os
+        store = dist.TCPStore(
+            host_name=os.environ['MASTER_ADDR'],
+            port=int(os.environ['MASTER_PORT']),
+            world_size=world_size,
+            is_master=(rank == 0),
+            timeout=torch.timedelta(seconds=30)
+        )
+        
+        store_key = f'rank_in_group_{group_id}'
+        store.set(store_key, str(rank))
+        
+        # If rank is 0, collect all ranks from the store
+        if rank == 0:
+            ranks = []
+            for i in range(group_size):
+                r = int(store.get(store_key).decode())
+                ranks.append(r)
+            ranks_tensor = torch.tensor(ranks, dtype=torch.int32)
+        else:
+            ranks_tensor = torch.zeros(group_size, dtype=torch.int32)
+        
+        # Broadcast the ranks_tensor to all ranks in the group
+        dist.broadcast(ranks_tensor, src=0, group=group)
+        ranks = ranks_tensor.tolist()
+        
+        # Clean up the store
+        if rank == 0:
+            store.delete_key(store_key)
+        
+        GROUP_RANKS_CACHE[group_id] = ranks
+        return group_rank, ranks
+    
+    except Exception as e:
+        print(f"[Rank {rank}] Failed to get ranks via TCPStore: {e}")
+        # If all methods fail, return a list of all ranks in the group
+        return group_rank, [dist.get_rank() for _ in range(group_size)]
 
 class CollectiveTracer:
     """
@@ -53,6 +124,8 @@ class CollectiveTracer:
             print("!!! WARNING !!! 没有找到任何要追踪的函数")
 
         self.call_counts = {fn: 0 for fn in self.hooked_functions}
+        self.my_rank = 0
+        self.participate_ranks = []
         
     def _log(self, message):
         """Log a message to console and/or file."""
@@ -99,7 +172,7 @@ class CollectiveTracer:
                 self.tracer.trace_data.append(trace_entry)
                 
                 # Print trace information
-                self.tracer._log(f"[TRACE] {func_name} - Shape: {self.tensor_info['shape']}, "
+                self._log(f"[TRACE] I am {self.tracer.my_rank} && in GROUP_{self.tracer.participate_ranks} - {func_name} - Shape: {self.tensor_info['shape']}, "
                         f"Dtype: {self.tensor_info['dtype']}, Size: {self.tensor_info['size']/1024/1024:.2f} MB, "
                         f"Duration: {duration*1e3:.3f} ms")
   
@@ -122,6 +195,9 @@ class CollectiveTracer:
             tensor = args[0] if args else None
             print(f"tensor.numel={tensor.numel()}   tensor.element_size={tensor.element_size()}\n")
             data_size = tensor.numel() * tensor.element_size() if tensor is not None else 0
+
+            group = kwargs.get('group') or (args[2] if len(args) > 2 else None)
+            self.my_rank, self.participate_ranks = get_participating_ranks(group)
             
             is_async = kwargs.get('async_op', False)
             if is_async:
@@ -141,7 +217,7 @@ class CollectiveTracer:
                 self.trace_data.append(trace_entry)
                 
                 # Print trace information
-                self._log(f"[TRACE] {func_name} - Shape: {tensor_info['shape']}, "
+                self._log(f"[TRACE] I am {self.my_rank} && in GROUP_{self.participate_ranks} - {func_name} - Shape: {tensor_info['shape']}, "
                         f"Dtype: {tensor_info['dtype']}, Size: {tensor_info['size']/1024/1024:.2f} MB, "
                         f"Duration: {duration*1e3:.3f} ms")
                 return work
