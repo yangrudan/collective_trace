@@ -13,6 +13,10 @@ pip install -e .
 cd ..
 torchrun --nproc_per_node=4 -m collective_trace.tests.test_in_torch
 torchrun --nproc_per_node=4 -m collective_trace.tests.test_in_cpu --sync_mode 
+
+# or
+cd collective_trace
+PYTHONPATH=/home/yang torchrun --nproc_per_node=4 tests/test_in_torch.py
 ```
 
 ## 0x02 Usage
