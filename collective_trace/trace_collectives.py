@@ -174,7 +174,7 @@ class CollectiveTracer:
                 self.tracer.trace_data.append(trace_entry)
                 
                 # Print trace information
-                self._log(f"[TRACE] I am {self.tracer.my_rank} && in GROUP_{self.tracer.participate_ranks} - {func_name} - Shape: {self.tensor_info['shape']}, "
+                self.tracer._log(f"[TRACE] I am {self.tracer.my_rank} && in GROUP_{self.tracer.participate_ranks} - {func_name} - Shape: {self.tensor_info['shape']}, "
                         f"Dtype: {self.tensor_info['dtype']}, Size: {self.tensor_info['size']/1024/1024:.2f} MB, "
                         f"Duration: {duration*1e3:.3f} ms, "
                         f"size of coll is {self.tracer.my_size} ")
