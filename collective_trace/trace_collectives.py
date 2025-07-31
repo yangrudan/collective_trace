@@ -206,7 +206,7 @@ class CollectiveTracer:
             data_size = tensor.numel() * tensor.element_size() if tensor is not None else 0
 
             group = kwargs.get('group') or (args[2] if len(args) > 2 else None)
-            self.my_rank, self.my_size, self.participate_ranks = get_participating_ranks(group)
+            self.my_rank, self.my_size, self.my_id_in_group, self.participate_ranks = get_participating_ranks(group)
 
             self.global_rank = dist.get_rank()
             
@@ -228,10 +228,10 @@ class CollectiveTracer:
                 self.trace_data.append(trace_entry)
                 
                 # Print trace information
-                self.tracer._log(f"[TRACE] global rank {self.global_rank} in GROUP_{self.my_id_in_group} - {func_name} - async:0, "
-                        f"Size: {self.tensor_info['size']/1024/1024:.2f} MB, "
-                        f"Shape: {self.tensor_info['shape']},"
-                        f"Dtype: {self.tensor_info['dtype']}, "
+                self._log(f"[TRACE] global rank {self.global_rank} in GROUP_{self.my_id_in_group} - {func_name} - async:0, "
+                        f"Size: {tensor_info['size']/1024/1024:.2f} MB, "
+                        f"Shape: {tensor_info['shape']},"
+                        f"Dtype: {tensor_info['dtype']}, "
                         f"Duration: {duration*1e3:.3f} ms, "
                         f"GROUP size {self.my_size}  = {self.participate_ranks}")
                 
