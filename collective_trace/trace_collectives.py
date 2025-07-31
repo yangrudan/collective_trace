@@ -29,7 +29,7 @@ GROUP_RANKS_CACHE = {}
 
 """
 This function returns a list of participating ranks within a given process group."""
-def get_participating_ranks(group: Optional[dist.ProcessGroup] = None) ->  Tuple[int, int, List[int]]:
+def get_participating_ranks(group: Optional[dist.ProcessGroup] = None) ->  Tuple[int, int, int, List[int]]:
     if not dist.is_initialized():
         return 0, 0, []
 
@@ -37,12 +37,12 @@ def get_participating_ranks(group: Optional[dist.ProcessGroup] = None) ->  Tuple
     group_size = dist.get_world_size(group=group)
 
     if group is None or group == dist.group.WORLD:
-        return group_rank, group_size, list(range(dist.get_world_size()))
+        return group_rank, group_size, 0, list(range(dist.get_world_size()))
     
     group_id = id(group)
     
     if group_id in GROUP_RANKS_CACHE:
-        return group_rank, group_size, GROUP_RANKS_CACHE[group_id]
+        return group_rank, group_size, group_id, GROUP_RANKS_CACHE[group_id]
 
     
     # Method 1: Use all_gather_object to collect all ranks
@@ -52,7 +52,7 @@ def get_participating_ranks(group: Optional[dist.ProcessGroup] = None) ->  Tuple
         dist.all_gather_object(ranks_list, global_rank, group=group)
         ranks = [int(r) for r in ranks_list]
         GROUP_RANKS_CACHE[group_id] = ranks
-        return group_rank, group_size, ranks
+        return group_rank, group_size, group_id, ranks
     
     except Exception as e:
         print(f"[Rank {dist.get_rank()}] all_gather_object failed: {e}. Using fallback method.")
@@ -93,12 +93,12 @@ def get_participating_ranks(group: Optional[dist.ProcessGroup] = None) ->  Tuple
             store.delete_key(store_key)
         
         GROUP_RANKS_CACHE[group_id] = ranks
-        return group_rank, group_size, ranks
+        return group_rank, group_size, group_id, ranks
     
     except Exception as e:
         print(f"[Rank {rank}] Failed to get ranks via TCPStore: {e}")
         # If all methods fail, return a list of all ranks in the group
-        return group_rank, group_size, [dist.get_rank() for _ in range(group_size)]
+        return group_rank, group_size, 0, [dist.get_rank() for _ in range(group_size)]
 
 class CollectiveTracer:
     """
@@ -128,6 +128,7 @@ class CollectiveTracer:
         self.call_counts = {fn: 0 for fn in self.hooked_functions}
         self.my_rank = 0  # partly rank in group
         self.my_size = 1
+        self.my_id_in_group = 0
         self.participate_ranks = []
 
         self.global_rank = 0
@@ -177,10 +178,12 @@ class CollectiveTracer:
                 self.tracer.trace_data.append(trace_entry)
                 
                 # Print trace information
-                self.tracer._log(f"[TRACE] I am {self.tracer.my_rank} && in GROUP_{self.tracer.participate_ranks} - {func_name} - Shape: {self.tensor_info['shape']}, "
-                        f"Dtype: {self.tensor_info['dtype']}, Size: {self.tensor_info['size']/1024/1024:.2f} MB, "
+                self.tracer._log(f"[TRACE] global rank {self.tracer.global_rank} in GROUP_{self.tracer.my_id_in_group} - {func_name} - async:1, "
+                        f"Size: {self.tensor_info['size']/1024/1024:.2f} MB, "
+                        f"Shape: {self.tensor_info['shape']},"
+                        f"Dtype: {self.tensor_info['dtype']}, "
                         f"Duration: {duration*1e3:.3f} ms, "
-                        f"size of coll is {self.tracer.my_size}  where the global rank is {self.tracer.global_rank}")
+                        f"GROUP size {self.tracer.my_size}  = {self.tracer.participate_ranks}")
   
                 return result
             
@@ -199,7 +202,7 @@ class CollectiveTracer:
                 _cuda_sync()
             start_time = time.perf_counter()
             tensor = args[0] if args else None
-            print(f"tensor.numel={tensor.numel()}   tensor.element_size={tensor.element_size()}\n")
+            # print(f"tensor.numel={tensor.numel()}   tensor.element_size={tensor.element_size()}\n")
             data_size = tensor.numel() * tensor.element_size() if tensor is not None else 0
 
             group = kwargs.get('group') or (args[2] if len(args) > 2 else None)
@@ -225,10 +228,13 @@ class CollectiveTracer:
                 self.trace_data.append(trace_entry)
                 
                 # Print trace information
-                self._log(f"[TRACE] I am {self.my_rank} && in GROUP_{self.participate_ranks} - {func_name} - Shape: {tensor_info['shape']}, "
-                        f"Dtype: {tensor_info['dtype']}, Size: {tensor_info['size']/1024/1024:.2f} MB, "
+                self.tracer._log(f"[TRACE] global rank {self.global_rank} in GROUP_{self.my_id_in_group} - {func_name} - async:0, "
+                        f"Size: {self.tensor_info['size']/1024/1024:.2f} MB, "
+                        f"Shape: {self.tensor_info['shape']},"
+                        f"Dtype: {self.tensor_info['dtype']}, "
                         f"Duration: {duration*1e3:.3f} ms, "
-                        f"size of coll is {self.my_size}  where the global rank is {self.global_rank}")
+                        f"GROUP size {self.my_size}  = {self.participate_ranks}")
+                
                 return work
         
         return wrapper
