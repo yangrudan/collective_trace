@@ -51,3 +51,12 @@ import megatron  # Megatron此时导入的是已替换的函数
 
 **version 0.1 Results**
 ![Results](docs/image3.png)
+
+## 0x03 Util
+
+```
+cd utils
+python parse_coll_info.py
+```
+
+![log](docs/image4.png)
