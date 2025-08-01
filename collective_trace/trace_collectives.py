@@ -3,6 +3,7 @@ import torch.distributed as dist
 import time
 from functools import wraps
 from typing import List, Optional, Union, Tuple
+from collections import defaultdict
 
 """
 export PYTHONPATH=/home/yang:$PYTHONPATH  # 设置环境变量
@@ -127,7 +128,7 @@ class CollectiveTracer:
         if not self.hooked_functions:
             print("!!! WARNING !!! 没有找到任何要追踪的函数")
 
-        self.call_counts = {fn: 0 for fn in self.hooked_functions}
+        self.call_counts = defaultdict(lambda: defaultdict(lambda: {'count': 0}))
         self.my_rank = 0  # partly rank in group
         self.my_size = 1
         self.my_id_in_group = 0
@@ -185,7 +186,9 @@ class CollectiveTracer:
                         f"Shape: {self.tensor_info['shape']},"
                         f"Dtype: {self.tensor_info['dtype']}, "
                         f"Duration: {duration*1e3:.3f} ms, "
-                        f"GROUP size {self.tracer.my_size}  = {self.tracer.participate_ranks}")
+                        f"GROUP size {self.tracer.my_size}  = {self.tracer.participate_ranks},"
+                        f"call count: {self.tracer.call_counts[func_name][self.tensor_info['shape']]['count']}"
+                    )
   
                 return result
             
@@ -194,17 +197,19 @@ class CollectiveTracer:
             
         @wraps(orig_func)
         def wrapper(*args, **kwargs):
-            # ------------ Collective Counts +1 ------------
-            self.call_counts[func_name] += 1
-            # --------------------------------
 
             tensor_info = self._extract_tensor_info(args, kwargs)
+
+            shape = tensor_info['shape'] if tensor_info else 'unknown'
+            op = func_name
+            self.call_counts[op][shape]['count'] += 1
 
             if self.has_cuda:
                 _cuda_sync()
             start_time = time.perf_counter()
+
             tensor = args[0] if args else None
-            # print(f"tensor.numel={tensor.numel()}   tensor.element_size={tensor.element_size()}\n")
+            # print(f"tensor.numel={tensor.numel()}   tensor.element_size={tensor.element_size()}\n")  不能在这打印
             data_size = tensor.numel() * tensor.element_size() if tensor is not None else 0
 
             group = kwargs.get('group') or (args[2] if len(args) > 2 else None)
@@ -235,7 +240,9 @@ class CollectiveTracer:
                         f"Shape: {tensor_info['shape']},"
                         f"Dtype: {tensor_info['dtype']}, "
                         f"Duration: {duration*1e3:.3f} ms, "
-                        f"GROUP size {self.my_size}  = {self.participate_ranks}")
+                        f"GROUP size {self.my_size}  = {self.participate_ranks},"
+                        f"call count: {self.call_counts[func_name][tensor_info['shape']]['count']}"
+                    )
                 
                 return work
         
