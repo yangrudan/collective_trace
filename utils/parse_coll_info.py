@@ -1,18 +1,15 @@
 """
-parse_log.py
+parse_coll_info.py
 统计 all_gather_into_tensor / broadcast 各 Shape 的出现次数与累计耗时
 """
 import os
 import re
-import json
 from collections import defaultdict
 from pathlib import Path
-import sys
 
-# ------------------ 可配置项 ------------------
+# ----------------------------- 可配置项 ------------------------
 LOG_FLODER_FILE = '/home/yang/Downloads/coll_log_444'          # 日志路径
-EXPORT_JSON = False         # 是否把结果写 json 文件
-# --------------------------------------------
+# --------------------------------------------------------------
 
 
 def parse_log(path: str):
@@ -50,12 +47,17 @@ def pretty_print(stats: dict):
 
 
 def parse_folder(path: str):
+    stats = defaultdict(lambda: defaultdict(lambda: {'count': 0, 'total_ms': 0.0}))
     for root, dirs, files in os.walk(path):
         for file in files:
             file_path = os.path.join(root, file)
             print(f'==================== {file_path} =====================')
-            stats = parse_log(file_path)
-            pretty_print(stats)
+            stat = parse_log(file_path)
+            for op in stat:
+                for shape, info in stat[op].items():
+                    stats[op][shape]['count'] += info['count']
+                    stats[op][shape]['total_ms'] += info['total_ms']
+    pretty_print(stats)
 
 def main():
     parse_folder(LOG_FLODER_FILE)
