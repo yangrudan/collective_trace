@@ -19,8 +19,8 @@ function_names = [
     'broadcast',
     'reduce_scatter_base',
     'all_gather_base',
-    '_all_gather_base'
-    '_reduce_scatter_base'
+    '_all_gather_base',
+    '_reduce_scatter_base',
     'reduce_scatter_tensor',
     'all_gather_into_tensor',
 ]
