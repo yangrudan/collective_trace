@@ -7,7 +7,7 @@ from functools import wraps
 
 from collective_trace.collective_trace import trace_all_collectives
 
-tracer = trace_all_collectives(trace_file='collective_trace.log')
+tracer = trace_all_collectives(trace_file='collective_trace.log', verbose=True)
 
 def main():
     parser = argparse.ArgumentParser()
