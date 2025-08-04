@@ -220,13 +220,9 @@ class CollectiveTracer:
     def apply_hooks(self):
         for func_name, orig_func in self.hooked_functions.items():
             if hasattr(dist, func_name):
-                if func_name == 'reduce_scatter_tensor':
-                    self._log(f"Before hook (reduce_scatter_tensor) {getattr(dist, func_name)}")
                 self.original_functions[func_name] = getattr(dist, func_name)
                 setattr(dist, func_name, self._trace_wrapper(func_name, orig_func))
                 self._log(f"Applyed hook to function: {func_name}")
-                if func_name == 'reduce_scatter_tensor':
-                    self._log(f"After hook (reduce_scatter_tensor) {getattr(dist, func_name)}")
     
     def remove_hooks(self):
         for func_name, orig_func in self.original_functions.items():
