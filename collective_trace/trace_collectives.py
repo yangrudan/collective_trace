@@ -131,9 +131,6 @@ class CollectiveTracer:
             op = func_name
             self.call_counts[op][shape]['count'] += 1
 
-            if self.has_cuda:
-                _cuda_sync()
-            start_time = time.perf_counter()
 
             tensor = args[0] if args else None
             # print(f"tensor.numel={tensor.numel()}   tensor.element_size={tensor.element_size()}\n")  不能在这打印
@@ -143,6 +140,12 @@ class CollectiveTracer:
             self.my_rank, self.my_size, self.my_id_in_group, self.participate_ranks = get_participating_ranks(group)
 
             self.global_rank = dist.get_rank()
+
+
+            if self.has_cuda:
+                _cuda_sync()
+            start_time = time.perf_counter()
+
             
             is_async = kwargs.get('async_op', False)
             if is_async:
