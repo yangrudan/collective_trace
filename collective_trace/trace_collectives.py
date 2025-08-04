@@ -97,8 +97,8 @@ class CollectiveTracer:
             def wait(self):
                 result = self.work.wait()
 
-                if self.tracer.has_cuda:
-                    _cuda_sync()
+                # if self.tracer.has_cuda:
+                #     _cuda_sync()
 
                 end_time = time.perf_counter()
                 duration = end_time - self.start_time
@@ -152,8 +152,8 @@ class CollectiveTracer:
             else:
                 work = orig_func(*args, **kwargs)
                 
-                if self.has_cuda:
-                    _cuda_sync()
+                # if self.has_cuda:
+                #     _cuda_sync()
 
                 end_time = time.perf_counter()
                 duration = end_time - start_time
