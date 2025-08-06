@@ -95,7 +95,7 @@ class CollectiveTracer:
             timeout_threshold=timeout_threshold,
             callback=self._timeout_callback  # 超时回调函数
         )
-        # self.timer.start()
+        self.timer.start()
 
         # 初始化待监控的函数
         function_names = [
@@ -222,7 +222,7 @@ class CollectiveTracer:
             if self.has_cuda:
                 _cuda_sync()
             start_time = time.perf_counter()
-            self.timer.start()
+            
             is_async = kwargs.get('async_op', False)
             op_id = id((args, kwargs, time.time()))  # 生成唯一操作ID
 
