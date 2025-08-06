@@ -22,25 +22,27 @@ def main():
     gradient = torch.tensor([rank] * 3, dtype=torch.float32)
     print(f"Rank {rank} 初始梯度: {gradient.numpy()}")
 
-    if args.sync_mode:
-        dist.all_reduce(gradient, op=dist.ReduceOp.SUM)
-    else:
-        work = dist.all_reduce(gradient, op=dist.ReduceOp.SUM, async_op=True)
+    # 执行多次通信原语
+    num_iterations = 20
+    for i in range(num_iterations):
+        if args.sync_mode:
+            dist.all_reduce(gradient, op=dist.ReduceOp.SUM)
+        else:
+            work = dist.all_reduce(gradient, op=dist.ReduceOp.SUM, async_op=True)
 
-    # Mock computation to simulate workload（CPU 上随便算点）
-    dummy_tensor = torch.ones(1)
-    for _ in range(1000):
-        dummy_tensor = dummy_tensor * 2 + 1
+        # Mock computation to simulate workload（CPU 上随便算点）
+        dummy_tensor = torch.ones(1)
+        for _ in range(1000):
+            dummy_tensor = dummy_tensor * 2 + 1
 
-    if args.sync_mode:
-        print(f"Rank {rank} [同步]all_reduce后梯度: {gradient.numpy()}")
-    else:
-        work.wait()
-        print(f"Rank {rank} [异步]all_reduce后梯度: {gradient.numpy()}")
-
-    # 导出追踪数据
-    global tracer
-    tracer.export_to_csv(f"aaa_{rank}.txt")
+        if args.sync_mode:
+            print(f"Rank {rank} [同步]第{i+1}次all_reduce后梯度: {gradient.numpy()}")
+        else:
+            work.wait()
+            print(f"Rank {rank} [异步]第{i+1}次all_reduce后梯度: {gradient.numpy()}")
+        
+        # 添加短暂延迟
+        time.sleep(1)
     
     print(tracer.get_all_call_counts())
 

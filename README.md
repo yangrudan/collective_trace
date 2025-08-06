@@ -54,9 +54,13 @@ import megatron  # Megatron此时导入的是已替换的函数
 
 ## 0x03 Util
 
-```
+```bash
 cd utils
 python parse_coll_info.py
 ```
 
-![log](docs/image4.png)
+![log](docs/image4.png)s
+
+## 0x04 Show running info in real-time
+
+![log](docs/image5.png)

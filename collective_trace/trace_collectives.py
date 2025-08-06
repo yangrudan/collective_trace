@@ -1,6 +1,7 @@
 import time
+import threading
 from functools import wraps
-from typing import List, Optional, Union, Tuple
+from typing import List, Optional, Union, Tuple, Dict
 from collections import defaultdict
 
 from .get_group import get_participating_ranks
@@ -62,6 +63,37 @@ class CollectiveTracer:
         self.participate_ranks = []
 
         self.global_rank = 0
+
+        self.running_primitives: List[Dict] = []  # 正在运行的原语
+        self.completed_primitives: List[Dict] = []  # 已完成的原语
+        self.display_interval = 1  # 状态显示间隔（秒）
+        self._start_display_thread()  # 启动实时显示线程
+    def _start_display_thread(self):
+        """启动后台线程，定期显示原语状态"""
+        def display_loop():
+            while True:
+                time.sleep(self.display_interval)
+                self._display_primitives_status()
+
+        thread = threading.Thread(target=display_loop, daemon=True)
+        thread.start()
+
+    def _display_primitives_status(self):
+        """打印当前rank的原语状态"""
+        if not self.verbose:
+            return
+        print(f"\n[Rank {self.global_rank}] 原语状态更新 ({time.strftime('%H:%M:%S')}):")
+        print(f"  正在运行: {len(self.running_primitives)} 个")
+        for idx, prim in enumerate(self.running_primitives[:5]):  # 显示前5个
+            print(f"    {idx+1}. {prim['func_name']} (Shape: {prim['tensor_shape']}, 已运行: {time.time() - prim['start_time']:.2f}s)")
+        if len(self.running_primitives) > 5:
+            print(f"    ... 还有 {len(self.running_primitives) - 5} 个未显示")
+
+        print(f"  已完成: {len(self.completed_primitives)} 个")
+        for idx, prim in enumerate(reversed(self.completed_primitives[-5:])):  # 显示最近5个
+            print(f"    {idx+1}. {prim['func_name']} (Shape: {prim['tensor_shape']}, 耗时: {prim['duration']*1000:.2f}ms)")
+        if len(self.completed_primitives) > 5:
+            print(f"    ... 还有 {len(self.completed_primitives) - 5} 个未显示")
         
     def _log(self, message):
         """Log a message to console and/or file."""
@@ -93,6 +125,15 @@ class CollectiveTracer:
                 self.data_size = data_size
                 self.tensor_info = tensor_info if tensor_info else {'shape': 'unknown', 'dtype': 'unknown', 'size': 0}
                 self.tracer = Tracer
+
+                # 新增：记录正在运行的原语
+                self.prim_id = id(self)  # 用对象ID作为唯一标识
+                self.tracer.running_primitives.append({
+                    'prim_id': self.prim_id,
+                    'func_name': func_name,
+                    'tensor_shape': self.tensor_info['shape'],
+                    'start_time': start_time
+                })
                 
             def wait(self):
                 result = self.work.wait()
@@ -102,6 +143,19 @@ class CollectiveTracer:
 
                 end_time = time.perf_counter()
                 duration = end_time - self.start_time
+
+                # 新增：将原语从运行中移至已完成
+                self.tracer.running_primitives = [
+                    p for p in self.tracer.running_primitives if p['prim_id'] != self.prim_id
+                ]
+                self.tracer.completed_primitives.append({
+                    'prim_id': self.prim_id,
+                    'func_name': self.func_name,
+                    'tensor_shape': self.tensor_info['shape'],
+                    'start_time': self.start_time,
+                    'end_time': end_time,
+                    'duration': duration
+                })
                 
                 # Create a trace entry
                 trace_entry = self.tracer.create_trace_entry(func_name, self.start_time, duration, self.tensor_info)
@@ -153,6 +207,14 @@ class CollectiveTracer:
 
                 return TimedWork(work, start_time, func_name, data_size, tensor_info, self)
             else:
+                prim_id = id(args)  # 用参数ID作为临时标识
+                self.running_primitives.append({
+                    'prim_id': prim_id,
+                    'func_name': func_name,
+                    'tensor_shape': tensor_info['shape'],
+                    'start_time': start_time
+                })
+            
                 work = orig_func(*args, **kwargs)
                 
                 # if self.has_cuda:
@@ -160,6 +222,17 @@ class CollectiveTracer:
 
                 end_time = time.perf_counter()
                 duration = end_time - start_time
+
+                 # 同步操作：移至已完成
+                self.running_primitives = [p for p in self.running_primitives if p['prim_id'] != prim_id]
+                self.completed_primitives.append({
+                    'prim_id': prim_id,
+                    'func_name': func_name,
+                    'tensor_shape': tensor_info['shape'],
+                    'start_time': start_time,
+                    'end_time': end_time,
+                    'duration': duration
+                })
                 
                 trace_entry = self.create_trace_entry(func_name, start_time, duration, tensor_info)
                 self.trace_data.append(trace_entry)
