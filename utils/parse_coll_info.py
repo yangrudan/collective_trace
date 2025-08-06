@@ -14,6 +14,7 @@ LOG_FLODER_FILE = '/home/yang/Downloads/coll_log_444'          # 日志路径
 
 def parse_log(path: str):
     """解析日志，返回双层 defaultdict：{op: {shape: {'count': int, 'total_ms': float}}}"""
+    # 创建一个双层 defaultdict，用于存储日志信息
     stats = defaultdict(lambda: defaultdict(lambda: {'count': 0, 'total_ms': 0.0}))
 
     pat = re.compile(
