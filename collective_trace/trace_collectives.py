@@ -216,6 +216,38 @@ class CollectiveTracer:
             'dtype': tensor.dtype,
             'size': tensor.element_size() * tensor.numel()
         }
+    
+    def hook_batch_isend_irecv(self):
+        if not hasattr(dist, 'batch_isend_irecv'):
+            print("!!! WARNING !!! 没有找到 batch_isend_irecv 函数")
+            return
+        
+        original_batch_isend_irecv = dist.batch_isend_irecv
+    
+        def wrapped_batch_isend_irecv(ops_list):
+            send_total = 0
+            recv_total = 0
+            
+            for op in ops_list:
+                if isinstance(op, dist.P2POp):
+                    tensor = op.tensor
+                    data_size = tensor.numel() * tensor.element_size() 
+                    
+                    if op.op_type == dist.isend:
+                        send_total += data_size
+                    elif op.peer == dist.irecv:
+                        recv_total += data_size
+            
+            send_mb = send_total / (1024 * 1024)
+            recv_mb = recv_total / (1024 * 1024)
+            
+            self._log(f"[TRACE] global rank {dist.get_rank()} - send: {send_total} bytes ({send_mb:.2f} MB), "
+                      f"recv: {recv_total} bytes ({recv_mb:.2f} MB), "
+                      f"ops count: {len(ops_list)}")
+            
+            return original_batch_isend_irecv(ops_list)
+    
+        dist.batch_isend_irecv = wrapped_batch_isend_irecv
      
     
     def apply_hooks(self):
@@ -224,6 +256,11 @@ class CollectiveTracer:
                 self.original_functions[func_name] = getattr(dist, func_name)
                 setattr(dist, func_name, self._trace_wrapper(func_name, orig_func))
                 self._log(f"Applyed hook to function: {func_name}")
+        
+        if hasattr(dist, 'batch_isend_irecv'):
+            self.hook_batch_isend_irecv()
+        
+        
     
     def remove_hooks(self):
         for func_name, orig_func in self.original_functions.items():
