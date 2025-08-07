@@ -233,9 +233,9 @@ class CollectiveTracer:
                     tensor = op.tensor
                     data_size = tensor.numel() * tensor.element_size() 
                     
-                    if op.op_type == dist.isend:
+                    if op.op == dist.isend:
                         send_total += data_size
-                    elif op.peer == dist.irecv:
+                    elif op.op == dist.irecv:
                         recv_total += data_size
             
             send_mb = send_total / (1024 * 1024)
