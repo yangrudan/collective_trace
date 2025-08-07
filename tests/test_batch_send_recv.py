@@ -9,6 +9,10 @@ import argparse
 import numpy as np
 import torch.distributed
  
+from collective_trace.collective_trace import trace_all_collectives
+
+tracer = trace_all_collectives(trace_file='collective_trace.log', verbose=True)
+
  
 def main():
     dist.init_process_group(backend='nccl')
