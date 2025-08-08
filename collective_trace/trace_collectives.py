@@ -236,10 +236,10 @@ class CollectiveTracer:
                     
                     if op.op == dist.isend:
                         send_total += data_size
-                        send_targets.append(op.dst) 
+                        send_targets.append(op.peer) 
                     elif op.op == dist.irecv:
                         recv_total += data_size
-                        recv_sources.append(op.src)
+                        recv_sources.append(op.peer)
             
             send_mb = send_total / (1024 * 1024)
             recv_mb = recv_total / (1024 * 1024)
