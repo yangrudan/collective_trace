@@ -22,11 +22,12 @@ function_names = [
     'reduce_scatter_base',
     'all_gather_base',
     'all_gather_into_tensor',
-    '_reduce_scatter_base',
+    'reduce_scatter_tensor',
+    
 ]
 
 # '_all_gather_base'
-# 'reduce_scatter_tensor',
+# '_reduce_scatter_base',
 # 'batch_isend_irecv',
 
 
@@ -227,29 +228,36 @@ class CollectiveTracer:
             send_total = 0
             recv_total = 0
             send_targets = []
+            send_shapes = []
             recv_sources = []
+            recv_shapes = []
             
             for op in ops_list:
                 if isinstance(op, dist.P2POp):
                     tensor = op.tensor
                     data_size = tensor.numel() * tensor.element_size() 
+                    shape = tuple(tensor.shape)
                     
                     if op.op == dist.isend:
                         send_total += data_size
                         send_targets.append(op.peer) 
+                        send_shapes.append(shape)
                     elif op.op == dist.irecv:
                         recv_total += data_size
                         recv_sources.append(op.peer)
+                        recv_shapes.append(shape)
             
             send_mb = send_total / (1024 * 1024)
             recv_mb = recv_total / (1024 * 1024)
 
             send_targets_str = ", ".join(map(str, send_targets)) if send_targets else "Null"
             recv_sources_str = ", ".join(map(str, recv_sources)) if recv_sources else "Null"
+            send_shapes_str = ", ".join(map(str, send_shapes)) if send_shapes else "Null"
+            recv_shapes_str = ", ".join(map(str, recv_shapes)) if recv_shapes else "Null"
             
             self._log(f"[BATCH] global rank {dist.get_rank()} - "
-                  f"send: {send_total} bytes ({send_mb:.2f} MB), 目标: [{send_targets_str}], "
-                  f"recv: {recv_total} bytes ({recv_mb:.2f} MB), 来源: [{recv_sources_str}], "
+                  f"send: {send_total} bytes ({send_mb:.2f} MB), shape: [{send_shapes_str}] 目标: [{send_targets_str}], "
+                  f"recv: {recv_total} bytes ({recv_mb:.2f} MB), shape: [{recv_shapes_str}[ 来源: [{recv_sources_str}], "
                   f"ops count: {len(ops_list)}")
             
             return original_batch_isend_irecv(ops_list)
