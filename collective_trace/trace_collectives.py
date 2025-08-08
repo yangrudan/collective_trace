@@ -241,7 +241,7 @@ class CollectiveTracer:
             send_mb = send_total / (1024 * 1024)
             recv_mb = recv_total / (1024 * 1024)
             
-            self._log(f"[TRACE] global rank {dist.get_rank()} - send: {send_total} bytes ({send_mb:.2f} MB), "
+            self._log(f"[BATCH] global rank {dist.get_rank()} - send: {send_total} bytes ({send_mb:.2f} MB), "
                       f"recv: {recv_total} bytes ({recv_mb:.2f} MB), "
                       f"ops count: {len(ops_list)}")
             

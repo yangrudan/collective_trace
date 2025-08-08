@@ -8,7 +8,7 @@ from collections import defaultdict
 from pathlib import Path
 
 # ----------------------------- 可配置项 ------------------------
-LOG_FLODER_FILE = '/home/yang/Downloads/coll_log_444'          # 日志路径
+LOG_FLODER_FILE = '/home/yang/Downloads/coll-0808'          # 日志路径
 # --------------------------------------------------------------
 
 
