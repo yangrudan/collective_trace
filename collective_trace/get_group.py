@@ -4,6 +4,9 @@ from . import Optional, Union, Tuple, List
 
 # Store the group ranks for each function in a dictionary
 GROUP_RANKS_CACHE = {}
+GROUP_ID_COUNTER = 0
+GROUP_ID_INDEX_MAP = {}
+
 
 """
 This function returns a list of participating ranks within a given process group."""
@@ -19,8 +22,8 @@ def get_participating_ranks(group: Optional[dist.ProcessGroup] = None) ->  Tuple
     
     group_id = id(group)
     
-    if group_id in GROUP_RANKS_CACHE:
-        return group_rank, group_size, group_id, GROUP_RANKS_CACHE[group_id]
+    if group_id in GROUP_RANKS_CACHE and group_id in GROUP_ID_INDEX_MAP:
+        return group_rank, group_size, GROUP_ID_INDEX_MAP[group_id], GROUP_RANKS_CACHE[group_id]
 
     
     # Method 1: Use all_gather_object to collect all ranks
@@ -29,8 +32,10 @@ def get_participating_ranks(group: Optional[dist.ProcessGroup] = None) ->  Tuple
         global_rank = dist.get_rank()
         dist.all_gather_object(ranks_list, global_rank, group=group)
         ranks = [int(r) for r in ranks_list]
+        GROUP_ID_COUNTER += 1
         GROUP_RANKS_CACHE[group_id] = ranks
-        return group_rank, group_size, group_id, ranks
+        GROUP_RANKS_CACHE[group_id] = GROUP_ID_COUNTER
+        return group_rank, group_size, GROUP_ID_COUNTER, ranks
     
     except Exception as e:
         print(f"[Rank {dist.get_rank()}] all_gather_object failed: {e}. Using fallback method.")
@@ -70,8 +75,10 @@ def get_participating_ranks(group: Optional[dist.ProcessGroup] = None) ->  Tuple
         if rank == 0:
             store.delete_key(store_key)
         
+        GROUP_ID_COUNTER += 1
         GROUP_RANKS_CACHE[group_id] = ranks
-        return group_rank, group_size, group_id, ranks
+        GROUP_ID_INDEX_MAP[group_id] = GROUP_ID_COUNTER
+        return group_rank, group_size, GROUP_ID_COUNTER, ranks
     
     except Exception as e:
         print(f"[Rank {rank}] Failed to get ranks via TCPStore: {e}")
