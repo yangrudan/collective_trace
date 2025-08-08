@@ -226,6 +226,8 @@ class CollectiveTracer:
         def wrapped_batch_isend_irecv(ops_list):
             send_total = 0
             recv_total = 0
+            send_targets = []
+            recv_sources = []
             
             for op in ops_list:
                 if isinstance(op, dist.P2POp):
@@ -234,15 +236,21 @@ class CollectiveTracer:
                     
                     if op.op == dist.isend:
                         send_total += data_size
+                        send_targets.append(op.dst) 
                     elif op.op == dist.irecv:
                         recv_total += data_size
+                        recv_sources.append(op.src)
             
             send_mb = send_total / (1024 * 1024)
             recv_mb = recv_total / (1024 * 1024)
+
+            send_targets_str = ", ".join(map(str, send_targets)) if send_targets else "Null"
+            recv_sources_str = ", ".join(map(str, recv_sources)) if recv_sources else "Null"
             
-            self._log(f"[BATCH] global rank {dist.get_rank()} - send: {send_total} bytes ({send_mb:.2f} MB), "
-                      f"recv: {recv_total} bytes ({recv_mb:.2f} MB), "
-                      f"ops count: {len(ops_list)}")
+            self._log(f"[BATCH] global rank {dist.get_rank()} - "
+                  f"send: {send_total} bytes ({send_mb:.2f} MB), 目标: [{send_targets_str}], "
+                  f"recv: {recv_total} bytes ({recv_mb:.2f} MB), 来源: [{recv_sources_str}], "
+                  f"ops count: {len(ops_list)}")
             
             return original_batch_isend_irecv(ops_list)
     
