@@ -54,9 +54,15 @@ import megatron  # Megatron此时导入的是已替换的函数
 
 ## 0x03 Util
 
-```
+```bash
 cd utils
 python parse_coll_info.py
 ```
 
 ![log](docs/image4.png)
+
+> export PYTHONPATH=/home/yang:$PYTHONPATH  # 设置环境变量
+>
+>
+>import sys
+>sys.path.insert(0, '/home/yang')  # 把 /home/yang 路径添加到搜索路径的最前面

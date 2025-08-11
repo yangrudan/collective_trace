@@ -1,3 +1,4 @@
+"""
 import argparse
 import torch
 import torch.distributed as dist
@@ -18,7 +19,8 @@ class TimedWork:
         end_time = time.time()
         duration = (end_time - self.start_time) * 1000
         print(
-            f"Rank {dist.get_rank()}: {self.func_name} | 数据量[异步模式]: {self.data_size/1e6:.2f}MB | 耗时: {duration:.2f}ms"
+            f"Rank {dist.get_rank()}: {self.func_name} | "
+            f"数据量[异步模式]: {self.data_size/1e6:.2f}MB | 耗时: {duration:.2f}ms"
         )
         return result
 
@@ -45,7 +47,8 @@ def trace_async_collective(func):
             end_time = time.time()
             duration = (end_time - start_time) * 1000  # 毫秒
             print(
-                f"Rank {dist.get_rank()}: {func.__name__} | 数据量[同步模式]: {data_size/1e6:.2f}MB | 耗时: {duration:.2f}ms"
+                f"Rank {dist.get_rank()}: {func.__name__} | 数据量[同步模式]: "
+                f"{data_size/1e6:.2f}MB | 耗时: {duration:.2f}ms"
             )
             return work
 
@@ -92,3 +95,5 @@ def main():
 if __name__ == "__main__":
     # 启动命令：torchrun --nproc_per_node=4 this_script.py
     main()
+
+"""

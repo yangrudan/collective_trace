@@ -5,7 +5,6 @@ parse_coll_info.py
 import os
 import re
 from collections import defaultdict
-from pathlib import Path
 
 # ----------------------------- 可配置项 ------------------------
 LOG_FLODER_FILE = '/home/yang/Downloads/coll-0808-v2'          # 日志路径
@@ -40,16 +39,39 @@ def parse_log(path: str):
 
 def pretty_print(stats: dict):
     """控制台打印结果"""
-    for op in sorted(stats):
-        print(f'\n=== {op} ===')
-        for shape in sorted(stats[op], key=lambda s: stats[op][s]['total_ms'], reverse=True):
-            info = stats[op][shape]
-            print(f"输出Shape {shape:<20} | count={info['count']:>8} | total= {info['total_ms']:.2f} ms | avg= {info['total_ms']/info['count']:.2f} ms")
+    if not stats:
+        print("没有统计数据可显示")
+        return
 
+    # 先获取排序后的操作列表，避免在循环中直接使用迭代变量
+    sorted_ops = sorted(stats.keys())
+
+    for current_op in sorted_ops:
+        print(f"\n=== {current_op} ===")
+
+        # 按总耗时降序排列
+        sorted_shapes = sorted(
+            stats[current_op].items(),
+            key=lambda item: item[1]["total_ms"],
+            reverse=True,
+        )
+
+        for shape, info in sorted_shapes:
+            count = info["count"]
+            total_ms = info["total_ms"]
+            avg_ms = total_ms / count if count != 0 else 0.0
+
+            print(
+                f"输出Shape {str(shape):<20} | "
+                f"count={count:>8} | "
+                f"total= {total_ms:>10.2f} ms | "
+                f"avg= {avg_ms:>8.2f} ms"
+            )
 
 def parse_folder(path: str):
+    """遍历文件夹下的所有文件，并调用 parse_log 函数进行处理"""
     stats = defaultdict(lambda: defaultdict(lambda: {'count': 0, 'total_ms': 0.0}))
-    for root, dirs, files in os.walk(path):
+    for root, _, files in os.walk(path):
         for file in files:
             file_path = os.path.join(root, file)
             print(f'==================== {file_path} =====================')
@@ -61,6 +83,7 @@ def parse_folder(path: str):
     pretty_print(stats)
 
 def main():
+    """主函数"""
     parse_folder(LOG_FLODER_FILE)
 
 if __name__ == '__main__':
