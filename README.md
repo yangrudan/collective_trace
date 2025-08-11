@@ -1,5 +1,7 @@
 # collective_trace
 
+[![Pylint](https://github.com/yangrudan/collective_trace/actions/workflows/pylint.yml/badge.svg)](https://github.com/yangrudan/collective_trace/actions/workflows/pylint.yml)
+
 Trace collective operations for distributed training.
 
 ## 0x01 Develop
@@ -52,11 +54,26 @@ import megatron  # Megatron此时导入的是已替换的函数
 **version 0.1 Results**
 ![Results](docs/image3.png)
 
-## 0x03 Util
+## 0x03 Build
 
+```bash
+# Prepare
+pip install setuptools wheel twine
+# Build
+python setup.py sdist bdist_wheel
 ```
+
+## 0x04 Util
+
+```bash
 cd utils
 python parse_coll_info.py
 ```
 
 ![log](docs/image4.png)
+
+> export PYTHONPATH=/home/yang:$PYTHONPATH  # 设置环境变量
+>
+>
+>import sys
+>sys.path.insert(0, '/home/yang')  # 把 /home/yang 路径添加到搜索路径的最前面

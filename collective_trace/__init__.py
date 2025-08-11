@@ -1,8 +1,11 @@
-__ALL__ = ["trace_all_collectives"]
+"""
+CollectiveTracer Module
 
-import torch
-import torch.distributed as dist
-from typing import List, Optional, Union, Tuple
+Support distributed training with PyTorch. 
+This module provides a fast API to trace all collective operations in PyTorch.
+"""
+
+__ALL__ = ["trace_all_collectives"]
 
 from .trace_collectives import CollectiveTracer
 
