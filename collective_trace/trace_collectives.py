@@ -223,7 +223,7 @@ class CollectiveTracer:
     def _extract_tensor_info(self, args, kwargs):
         """sub function to extract tensor information from arguments."""
         tensor = None
-
+        
         # Try to find a tensor in positional arguments
         for arg in args:
             if isinstance(arg, torch.Tensor):
@@ -236,7 +236,7 @@ class CollectiveTracer:
                 if isinstance(value, torch.Tensor):
                     tensor = value
                     break
-
+        
         # If still not found, check if the first argument is an object with a tensor attribute
         if tensor is None and args:
             first_arg = args[0]
@@ -248,7 +248,7 @@ class CollectiveTracer:
                         break
                 except (AttributeError, TypeError):
                     continue
-
+        
         if tensor is None:
             return {"shape": "unknown", "dtype": "unknown", "size": 0}
 
@@ -368,6 +368,7 @@ class CollectiveTracer:
                 writer.writerow(row)
 
         self.log(f"Exported trace data to {filename}")
+
 
 
 def _cuda_sync():

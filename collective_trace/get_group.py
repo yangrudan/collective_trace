@@ -99,13 +99,19 @@ def get_participating_ranks(
         store = dist.TCPStore(
             host_name=os.environ["MASTER_ADDR"],
             port=int(os.environ["MASTER_PORT"]),
+            host_name=os.environ["MASTER_ADDR"],
+            port=int(os.environ["MASTER_PORT"]),
             world_size=world_size,
             is_master=(rank == 0),
+            timeout=torch.timedelta(seconds=30),
             timeout=torch.timedelta(seconds=30),
         )
 
         store_key = f"rank_in_group_{group_id}"
+
+        store_key = f"rank_in_group_{group_id}"
         store.set(store_key, str(rank))
+
 
         # If rank is 0, collect all ranks from the store
         if rank == 0:
@@ -117,9 +123,11 @@ def get_participating_ranks(
         else:
             ranks_tensor = torch.zeros(group_size, dtype=torch.int32)
 
+
         # Broadcast the ranks_tensor to all ranks in the group
         dist.broadcast(ranks_tensor, src=0, group=group)
         ranks = ranks_tensor.tolist()
+
 
         # Clean up the store
         if rank == 0:
