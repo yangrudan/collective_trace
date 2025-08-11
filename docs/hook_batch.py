@@ -1,11 +1,17 @@
+"""
+Define a function to install the hook for batch_isend_irecv
+"""
 import os
-import torch
-import torch.distributed as dist
 import time
+try:
+    import torch
+    import torch.distributed as dist
+except ImportError:
+    pass
 
 
-# 猴子补丁：监控 batch_isend_irecv 通信数据量
 def hook_batch_isend_irecv():
+    """Install a hook that logs communication statistics when using batch_isend_irecv"""
     original_batch_isend_irecv = dist.batch_isend_irecv
 
     def wrapped_batch_isend_irecv(ops_list):
@@ -19,9 +25,6 @@ def hook_batch_isend_irecv():
                 tensor = op.tensor
                 data_size = tensor.numel() * tensor.element_size()  # 计算数据量
 
-                # 通过进程号逻辑判断操作类型（结合你的脚本逻辑）
-                # 发送操作的目标进程是 (rank + 1) % world_size
-                # 接收操作的源进程是 (rank - 1 + world_size) % world_size
                 if op.peer == (rank + 1) % world_size:
                     send_total += data_size
                 elif op.peer == (rank - 1 + world_size) % world_size:
@@ -45,6 +48,7 @@ def hook_batch_isend_irecv():
 
 
 def main():
+    """Main entry point"""
     dist.init_process_group(backend="nccl")
     if not dist.is_initialized():
         return
