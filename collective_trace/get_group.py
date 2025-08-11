@@ -7,9 +7,13 @@ and handle group creation exceptions.
 """
 
 import os
-from . import torch
-from . import dist
-from . import Optional, Tuple, List
+from typing import Optional, Tuple, List
+
+try:
+    import torch
+    import torch.distributed as dist
+except ImportError:
+    pass
 
 
 class GroupState:
@@ -109,7 +113,6 @@ def get_participating_ranks(
         store_key = f"rank_in_group_{group_id}"
         store.set(store_key, str(rank))
 
-
         # If rank is 0, collect all ranks from the store
         if rank == 0:
             ranks = []
@@ -120,11 +123,9 @@ def get_participating_ranks(
         else:
             ranks_tensor = torch.zeros(group_size, dtype=torch.int32)
 
-
         # Broadcast the ranks_tensor to all ranks in the group
         dist.broadcast(ranks_tensor, src=0, group=group)
         ranks = ranks_tensor.tolist()
-
 
         # Clean up the store
         if rank == 0:

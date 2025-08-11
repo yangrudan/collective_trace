@@ -7,16 +7,6 @@ This module provides a fast API to trace all collective operations in PyTorch.
 
 __ALL__ = ["trace_all_collectives"]
 
-from typing import List, Optional, Union, Tuple
-
-try:
-    import torch
-    import torch.distributed as dist
-except ImportError:
-    import warnings
-
-    warnings.warn("PyTorch is not installed, please install it first.")
-
 from .trace_collectives import CollectiveTracer
 
 
