@@ -18,9 +18,12 @@
 git clone https://github.com/yangrudan/collective_trace.git
 cd collective_trace
 pip install -e .  #  editable 模式
+```
 
-2.2 集成到训练代码​
+### 2.2 使用(集成到训练代码)​
+
 在训练代码中导入并启用追踪功能（需在分布式框架导入前调用）：
+
 ```bash
 import torch
 import torch.distributed as dist
@@ -35,10 +38,19 @@ import megatron
 # 训练代码...
 ```
 
+### 2.3 编译发布
+
+```bash
+# Prepare
+pip install setuptools wheel twine
+# Build
+python setup.py sdist bdist_wheel
+
+```
+
 ## 3. 开发指南
 
 ```bash
-# 克隆代码并安装依赖
 git clone https://github.com/yangrudan/collective_trace.git
 cd collective_trace
 pip install -e .
@@ -67,10 +79,6 @@ version 0.1 结果展示（image3.png）：​
 ## 4.3 跨节点通信分析
 
 追踪跨节点的集体通信操作，包括但不限于 allreduce_coalesced 等高级通信模式。
-
-## 4.4 集成更多框架支持
-
-目前仅支持 PyTorch，计划增加对 TensorFlow 和 JAX 的支持。
 
 ## 5. 贡献与反馈
 
