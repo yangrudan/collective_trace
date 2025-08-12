@@ -7,15 +7,27 @@ import re
 def parse_pat():
     """正则表达式模式"""
     pat = re.compile(
-        r"\[TRACE\] global rank (?P<rank>\d+) in (?P<group>\S+) - "
-        r"(?P<op>\w+) - "
-        r"async:(?P<async>\d+), "
-        r"Size: (?P<size>\d+\.\d+) MB, "
-        r"Shape: (?P<shape>\([^)]+\)),"
-        r"Dtype: (?P<dtype>[^,]+), "
-        r"Duration: (?P<dur>\d+(?:\.\d+)?) ms, "
-        r"GROUP size (?P<gs>\d+)  = (?P<ranks>\[[\d, ]+\])"
+    r"\[TRACE\] global rank (?P<rank>\d+) "
+    r"in (?P<group>\S+) - "
+    r"(?P<op>\w+) - "
+    r"async:(?P<async>\d+), "
+    r"Size: (?P<size>\d+(?:\.\d+)?) MB, "
+    r"Shape: (?P<shape>\([^)]+\)), "              # ← 圆括号
+    r"Dtype: (?P<dtype>[^,]+), "
+    r"Duration: (?P<dur>\d+(?:\.\d+)?) ms, "
+    r"GROUP size (?P<gs>\d+)\s*=\s*"             # ← 空格任意
+    r"(?P<ranks>\[[\d,\s]+\]), call count: (?P<count>\d+)"
     )
+#    pat = re.compile(
+#        r"\[TRACE\] global rank (?P<rank>\d+) in (?P<group>\S+) - "
+#        r"(?P<op>\w+) - "
+#        r"async:(?P<async>\d+), "
+#        r"Size: (?P<size>\d+\.\d+) MB, "
+#        r"Shape: (?P<shape>\([^)]+\)), "
+#        r"Dtype: (?P<dtype>[^,]+), "
+#        r"Duration: (?P<dur>\d+(?:\.\d+)?) ms, "
+#        r"GROUP size (?P<gs>\d+)  = (?P<ranks>\[[\d, ]+\]) "
+#    )
     return pat
 
 def pretty_print(stats: dict):

@@ -41,6 +41,7 @@ def parse_folder(path: str):
                 for shape, info in stat[op].items():
                     stats[op][shape]['count'] += info['count']
                     stats[op][shape]['total_ms'] += info['total_ms']
+    print(f"{stats}")
     pretty_print(stats)
 
 def main():

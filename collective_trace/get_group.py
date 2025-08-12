@@ -85,7 +85,6 @@ def get_participating_ranks(
         dist.all_gather_object(ranks_list, global_rank, group=group)
         ranks = [int(r) for r in ranks_list]
 
-        group_state.group_id_counter += 1
         group_state.cache_group_ranks(group_id, ranks)
         new_index = group_state.update_counter_and_map(group_id)
         return group_rank, group_size, new_index, ranks
