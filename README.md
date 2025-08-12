@@ -20,7 +20,7 @@ cd collective_trace
 pip install -e .  #  editable 模式
 ```
 
-### 2.2 使用(集成到训练代码)​
+### 2.2 使用 (集成到训练代码)​
 
 在训练代码中导入并启用追踪功能（需在分布式框架导入前调用）：
 
@@ -33,9 +33,9 @@ from collective_trace.collective_trace import trace_all_collectives
 # 启用追踪，日志输出到 collective_trace.log
 trace_all_collectives(trace_file='collective_trace.log')
 
-# 注意：需在导入 Megatron 框架前调用
-import megatron  
-# 训练代码...
+import megatron  # Megatron此时导入的是已替换的函数
+# Your training code here
+
 ```
 
 ### 2.3 编译发布
@@ -64,7 +64,7 @@ torchrun --nproc_per_node=4 -m collective_trace.tests.test_in_cpu --sync_mode
 
 ## 4. TODO
 
-## 4.1 追踪结果实时显示
+### 4.1 追踪结果实时显示
 
 version 0.1 结果展示（image3.png）：​
 横轴：训练时间（秒）​
@@ -72,11 +72,11 @@ version 0.1 结果展示（image3.png）：​
 不同颜色块：不同类型的集体通信操作（如 allreduce 为蓝色，broadcast 为绿色）​
 块长度：操作耗时
 
-## 4.2 超时监测
+### 4.2 超时监测
 
 追踪单个操作的耗时，并与预设阈值比较。若超过阈值，则记录相关信息（如操作类型、进程编号等），并可选择触发警告或自动优化建议。
 
-## 4.3 跨节点通信分析
+### 4.3 跨节点通信分析
 
 追踪跨节点的集体通信操作，包括但不限于 allreduce_coalesced 等高级通信模式。
 
