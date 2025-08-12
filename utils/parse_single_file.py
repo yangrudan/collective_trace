@@ -11,7 +11,7 @@ from pretty_print import pretty_print, parse_pat
 
 # ---------------------------------------- 可配置项 ---------------------------------------
 LOG_FLODER_FILE = (
-    "/home/yang/Downloads/coll-0808-v3/collective_trace_0808.log-0"  # 日志路径
+    "/home/yang/Downloads/coll-0811/collective_trace_0811.log-17"
 )
 # ----------------------------------------------------------------------------------------
 

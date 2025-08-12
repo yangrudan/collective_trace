@@ -18,5 +18,5 @@ def parse_trace(path: str) -> List[Dict[str, str]]:
 
 
 if __name__ == "__main__":
-    for rec in parse_trace("collective.txt")[:]:
+    for rec in parse_trace("collective_trace_0811.log-1")[:]:
         print(rec)
