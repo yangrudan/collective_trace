@@ -1,6 +1,8 @@
 # collective_trace
 
+[![PyPI - Version](https://img.shields.io/pypi/v/collective-trace.svg)](https://pypi.org/project/collective-trace/)
 [![Pylint](https://github.com/yangrudan/collective_trace/actions/workflows/pylint.yml/badge.svg)](https://github.com/yangrudan/collective_trace/actions/workflows/pylint.yml)
+[![License](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 `collective_trace` 是一个轻量级分布式训练集体通信操作追踪工具，专注于帮助开发者解析和优化分布式训练中的通信瓶颈。通过对 PyTorch 等框架的集体通信操作（如 `allreduce`、`broadcast`、`all_gather` 等）进行无侵入式的 monkey-patching 追踪，可记录操作类型、耗时、参与进程、数据量等关键信息，为分布式训练性能分析提供数据支持。
 
