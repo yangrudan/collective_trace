@@ -3,3 +3,6 @@ __pycache__/
 */__pycache__/
 *.pyc
 *.pyo
+collective_trace.egg-info/
+build/
+dist/

@@ -3,12 +3,12 @@ parse_coll_info.py
 统计 all_gather_into_tensor / broadcast 各 Shape 的出现次数与累计耗时
 """
 import os
-import re
+
 from collections import defaultdict
-from pathlib import Path
+from pretty_print import pretty_print, parse_pat
 
 # ----------------------------- 可配置项 ------------------------
-LOG_FLODER_FILE = '/home/yang/Downloads/coll_log_444'          # 日志路径
+LOG_FLODER_FILE = '/home/yang/Downloads/coll-0811'          # 日志路径
 # --------------------------------------------------------------
 
 
@@ -17,16 +17,7 @@ def parse_log(path: str):
     # 创建一个双层 defaultdict，用于存储日志信息
     stats = defaultdict(lambda: defaultdict(lambda: {'count': 0, 'total_ms': 0.0}))
 
-    pat = re.compile(
-        r"\[TRACE\] global rank (?P<rank>\d+) in (?P<group>\S+) - "
-        r"(?P<op>\w+) - "
-        r"async:(?P<async>\d+), "
-        r"Size: (?P<size>\d+\.\d+) MB, "
-        r"Shape: (?P<shape>\([^)]+\)),"
-        r"Dtype: (?P<dtype>[^,]+), "
-        r"Duration: (?P<dur>\d+(?:\.\d+)?) ms, "
-        r"GROUP size (?P<gs>\d+)  = (?P<ranks>\[[\d, ]+\])"
-    )
+    pat = parse_pat()
 
     with open(path, 'r', encoding='utf-8') as f:
         for line in f:
@@ -38,18 +29,10 @@ def parse_log(path: str):
             stats[op][shape]['total_ms'] += dur
     return stats
 
-def pretty_print(stats: dict):
-    """控制台打印结果"""
-    for op in sorted(stats):
-        print(f'\n=== {op} ===')
-        for shape in sorted(stats[op], key=lambda s: stats[op][s]['total_ms'], reverse=True):
-            info = stats[op][shape]
-            print(f"输出Shape {shape:<20} | count={info['count']:>8} | total= {info['total_ms']:.2f} ms | avg= {info['total_ms']/info['count']:.2f} ms")
-
-
 def parse_folder(path: str):
+    """遍历文件夹下的所有文件，并调用 parse_log 函数进行处理"""
     stats = defaultdict(lambda: defaultdict(lambda: {'count': 0, 'total_ms': 0.0}))
-    for root, dirs, files in os.walk(path):
+    for root, _, files in os.walk(path):
         for file in files:
             file_path = os.path.join(root, file)
             print(f'==================== {file_path} =====================')
@@ -58,9 +41,11 @@ def parse_folder(path: str):
                 for shape, info in stat[op].items():
                     stats[op][shape]['count'] += info['count']
                     stats[op][shape]['total_ms'] += info['total_ms']
+    print(f"{stats}")
     pretty_print(stats)
 
 def main():
+    """主函数"""
     parse_folder(LOG_FLODER_FILE)
 
 if __name__ == '__main__':

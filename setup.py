@@ -1,4 +1,6 @@
-# setup.py
+"""
+Package setup.py for collective-trace
+"""
 from setuptools import setup, find_packages
 
 with open("README.md", "r", encoding="utf-8") as fh:
@@ -6,7 +8,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="collective-trace",
-    version="0.1.0",
+    version="0.1.1",
     author="Cookie Yang",
     author_email="yangrudan@zhejianglab.org",
     description="A monkey-patching tool for tracing collective operations",
