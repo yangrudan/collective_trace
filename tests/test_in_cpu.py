@@ -7,11 +7,12 @@ from functools import wraps
 
 from collective_trace.collective_trace import trace_all_collectives
 
-tracer = trace_all_collectives(trace_file='collective_trace.log', verbose=True)
+tracer = trace_all_collectives(trace_file="collective_trace.log", verbose=True)
+
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--sync_mode', action='store_true', help='启用同步通信模式')
+    parser.add_argument("--sync_mode", action="store_true", help="启用同步通信模式")
     args = parser.parse_args()
 
     # CPU 场景使用 gloo 后端
@@ -41,10 +42,11 @@ def main():
     # 导出追踪数据
     global tracer
     tracer.export_to_csv(f"aaa_{rank}.txt")
-    
+
     print(tracer.get_all_call_counts())
 
     dist.destroy_process_group()
+
 
 if __name__ == "__main__":
     # 运行示例（4 进程 CPU）

@@ -1,3 +1,8 @@
+"""
+Core functions for collective tracing
+"""
+
+import csv
 import time
 import threading
 from queue import Queue
@@ -212,7 +217,7 @@ class CollectiveTracer:
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            if 'dist' in globals() and dist.is_available() and dist.is_initialized():
+            if dist.is_available() and dist.is_initialized():
                 self.config.global_rank = dist.get_rank()
             return func(*args, **kwargs)
 
@@ -247,10 +252,13 @@ class CollectiveTracer:
                 self.op_id = op_id
                 self.start_time = start_time
                 self.func_name = func_name
-                self.tensor_info = tensor_info
-                self.tracer = tracer
+                self.tensor_info = kwargs.get(
+                    "tensor_info", {"shape": "unknown", "dtype": "unknown", "size": 0}
+                )
+                self.tracer = kwargs.get("tracer")
 
             def wait(self):
+                """Wait for the wrapped work to complete and record the timing info."""
                 result = self.work.wait()
 
                 if self.tracer.config.has_cuda:
