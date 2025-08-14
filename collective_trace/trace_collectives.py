@@ -26,13 +26,10 @@ function_names = [
     "all_gather_base",
     "all_gather_into_tensor",
     "reduce_scatter_tensor",
-    "all_gather_into_tensor_coalesced",
-    "reduce_scatter_tensor_coalesced",
 ]
 
 # '_all_gather_base'
 # '_reduce_scatter_base',
-# 'batch_isend_irecv',
 
 
 @dataclass
