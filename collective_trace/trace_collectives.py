@@ -42,6 +42,7 @@ class TraceConfig:
     trace_file: str = None
     verbose: bool = True
     has_cuda: bool = False
+    global_rank: int = 0
 
 
 @dataclass
@@ -70,7 +71,10 @@ class CollectiveTracer:
             verbose: Whether to print messages or not
         """
         self.config = TraceConfig(
-            trace_file=trace_file, verbose=verbose, has_cuda=torch.cuda.is_available()
+            trace_file=trace_file,
+            verbose=verbose,
+            has_cuda=torch.cuda.is_available(),
+            global_rank=0,
         )
         self.trace_data = []
         self.original_functions = {}
@@ -88,16 +92,25 @@ class CollectiveTracer:
         self.call_counts = defaultdict(lambda: defaultdict(lambda: {"count": 0}))
         self.group_info = GroupState()
 
-        self.global_rank = 0
-
     def log(self, message):
         """Log a message to console and/or file."""
         if self.config.verbose:
             print(message)
         if self.config.trace_file:
-            ranked_filename = f"{self.config.trace_file}-{self.global_rank}"
+            ranked_filename = f"{self.config.trace_file}-{self.config.global_rank}"
             with open(ranked_filename, "a", encoding="utf-8") as f:
                 f.write(message + "\n")
+
+    def with_global_rank(self, func):
+        """Decorator that updates global rank before calling the wrapped function"""
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if dist.is_available() and dist.is_initialized():
+                self.config.global_rank = dist.get_rank()
+            return func(*args, **kwargs)
+
+        return wrapper
 
     def create_trace_entry(self, func_name, start_time, duration, tensor_info):
         """Create a trace entry."""
@@ -148,7 +161,7 @@ class CollectiveTracer:
 
                 # Print trace information
                 self.tracer.log(
-                    f"[TRACE] global rank {self.tracer.global_rank} "
+                    f"[TRACE] global rank {self.tracer.config.global_rank} "
                     f"in GROUP_{self.tracer.group_info.my_idx_in_group} "
                     f"- {func_name} - async:1, "
                     f"Size: {self.tensor_info['size']/1024/1024:.2f} MB, "
@@ -167,6 +180,7 @@ class CollectiveTracer:
                 """Check whether the wrapped work is completed."""
                 return self.work.is_completed()
 
+        @self.with_global_rank
         @wraps(orig_func)
         def wrapper(*args, **kwargs):
 
@@ -183,8 +197,6 @@ class CollectiveTracer:
                 self.group_info.my_idx_in_group,
                 self.group_info.participate_ranks,
             ) = get_participating_ranks(group)
-
-            self.global_rank = dist.get_rank()
 
             if self.config.has_cuda:
                 _cuda_sync()
@@ -213,7 +225,7 @@ class CollectiveTracer:
 
             # Print trace information
             self.log(
-                f"[TRACE] global rank {self.global_rank} "
+                f"[TRACE] global rank {self.config.global_rank} "
                 f"in GROUP_{self.group_info.my_idx_in_group} "
                 f"- {func_name} - async:0, "
                 f"Size: {tensor_info['size']/1024/1024:.2f} MB, "
@@ -275,6 +287,7 @@ class CollectiveTracer:
 
         original_batch_isend_irecv = dist.batch_isend_irecv
 
+        @self.with_global_rank
         def wrapped_batch_isend_irecv(ops_list):
             stats = {
                 "send_total": 0,
@@ -325,7 +338,7 @@ class CollectiveTracer:
             )
 
             self.log(
-                f"[BATCH] global rank {dist.get_rank()} - "
+                f"[BATCH] global rank {self.config.global_rank} - "
                 f"send: {stats['send_total']} bytes ({send_mb:.2f} MB), "
                 f"shape: [{send_shapes_str}] 目标: [{send_targets_str}], "
                 f"recv: {stats['recv_total']} bytes ({recv_mb:.2f} MB), "
@@ -338,7 +351,7 @@ class CollectiveTracer:
         dist.batch_isend_irecv = wrapped_batch_isend_irecv
 
     def _trace_barrier(self, original_barrier):
-
+        @self.with_global_rank
         @wraps(original_barrier)
         def barrier_traced(*args, **kwargs):
             start_time = time.perf_counter()
@@ -350,7 +363,8 @@ class CollectiveTracer:
             self.trace_data.append(trace_entry)
 
             self.log(
-                f"[BARRIER] global rank {dist.get_rank()} - barrier - async:0, "
+                f"[BARRIER] global rank {self.config.global_rank} -"
+                f"barrier - async:0, "
                 f"Duration: {duration*1e3:.3f} ms"
             )
 
@@ -380,7 +394,7 @@ class CollectiveTracer:
         for func_name, orig_func in self.original_functions.items():
             if hasattr(dist, func_name):
                 setattr(dist, func_name, orig_func)
-                self.log(f"Removed hook from function: {func_name}")
+                print(f"Removed hook from function: {func_name}")
 
     def get_trace_data(self):
         """Return the collected trace data."""
