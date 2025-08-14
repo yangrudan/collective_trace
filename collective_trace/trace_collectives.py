@@ -26,13 +26,10 @@ function_names = [
     "all_gather_base",
     "all_gather_into_tensor",
     "reduce_scatter_tensor",
-    "all_gather_into_tensor_coalesced",
-    "reduce_scatter_tensor_coalesced",
 ]
 
 # '_all_gather_base'
 # '_reduce_scatter_base',
-# 'batch_isend_irecv',
 
 
 @dataclass
@@ -379,16 +376,9 @@ class CollectiveTracer:
                 self.original_functions[func_name] = getattr(dist, func_name)
                 setattr(dist, func_name, self._trace_wrapper(func_name, orig_func))
                 print(f"Applyed hook to function: {func_name}")
-                print(f"Applyed hook to function: {func_name}")
 
         if hasattr(dist, "batch_isend_irecv"):
             self.hook_batch_isend_irecv()
-            print("Applyed hook to batch_isend_irecv")
-
-        if hasattr(dist, "barrier"):
-            original_barrier = getattr(dist, "barrier")
-            setattr(dist, "barrier", self._trace_barrier(original_barrier))
-            print("Applyed hook to barrier")
             print("Applyed hook to batch_isend_irecv")
 
         if hasattr(dist, "barrier"):
