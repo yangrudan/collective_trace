@@ -101,6 +101,9 @@ class CollectiveTracer:
 
     def create_trace_entry(self, func_name, start_time, duration, tensor_info):
         """Create a trace entry."""
+        if tensor_info is None:
+            tensor_info = {"shape": "unknown", "dtype": "unknown", "size": 0}
+
         return {
             "function": func_name,
             "timestamp": start_time,
@@ -334,16 +337,43 @@ class CollectiveTracer:
 
         dist.batch_isend_irecv = wrapped_batch_isend_irecv
 
+    def _trace_barrier(self, original_barrier):
+
+        @wraps(original_barrier)
+        def barrier_traced(*args, **kwargs):
+            start_time = time.perf_counter()
+            result = original_barrier(*args, **kwargs)
+            end_time = time.perf_counter()
+            duration = end_time - start_time
+
+            trace_entry = self.create_trace_entry("barrier", start_time, duration, None)
+            self.trace_data.append(trace_entry)
+
+            self.log(
+                f"[BARRIER] global rank {dist.get_rank()} - barrier - async:0, "
+                f"Duration: {duration*1e3:.3f} ms"
+            )
+
+            return result
+
+        return barrier_traced
+
     def apply_hooks(self):
         """Apply all tracing hooks on distributed functions"""
         for func_name, orig_func in self.hooked_functions.items():
             if hasattr(dist, func_name):
                 self.original_functions[func_name] = getattr(dist, func_name)
                 setattr(dist, func_name, self._trace_wrapper(func_name, orig_func))
-                self.log(f"Applyed hook to function: {func_name}")
+                print(f"Applyed hook to function: {func_name}")
 
         if hasattr(dist, "batch_isend_irecv"):
             self.hook_batch_isend_irecv()
+            print("Applyed hook to batch_isend_irecv")
+
+        if hasattr(dist, "barrier"):
+            original_barrier = getattr(dist, "barrier")
+            setattr(dist, "barrier", self._trace_barrier(original_barrier))
+            print("Applyed hook to barrier")
 
     def remove_hooks(self):
         """Remove all tracing hooks from distributed functions"""
