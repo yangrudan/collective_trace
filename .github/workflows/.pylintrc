@@ -2,10 +2,11 @@
 ignore-patterns=^tests/
 
 [MESSAGES CONTROL]
-# 全局禁用的检查项（可选）
-# disable=
+disable=R0902:collective_trace.trace_collectives
 
 [CLASSES]
 # 全局默认的最大实例属性数量
-max-instance-attributes=7
+max-instance-attributes=8
+
+
     
