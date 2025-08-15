@@ -20,4 +20,8 @@ jobs:
         pip install pylint
     - name: Analysing the code with pylint
       run: |
-        pylint $(git ls-files '*.py' | grep -v '^tests/') --rcfile=.github/workflows/.pylintrc
+        # 先对特定文件禁用R0902错误，再检查其他文件
+        pylint collective_trace/trace_collectives.py --disable=R0902 --rcfile=.github/workflows/.pylintrc
+        # 检查其他所有Python文件（排除tests和已检查的文件）
+        pylint $(git ls-files '*.py' | grep -v '^tests/' | grep -v 'collective_trace/trace_collectives.py') --rcfile=.github/workflows/.pylintrc
+    

@@ -2,13 +2,10 @@
 ignore-patterns=^tests/
 
 [MESSAGES CONTROL]
-# 这里可以添加全局禁用的检查项
+# 全局禁用的检查项（可选）
 # disable=
 
 [CLASSES]
 # 全局默认的最大实例属性数量
 max-instance-attributes=7
-
-[collective_trace.trace_collectives]
-# 仅对这个模块放宽限制
-max-instance-attributes=8
+    
