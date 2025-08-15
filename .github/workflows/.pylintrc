@@ -2,17 +2,13 @@
 ignore-patterns=^tests/
 
 [MESSAGES CONTROL]
-disable=
-
-[TYPECHECK]
-
-[FORMAT]
-
-[SIMILARITIES]
-
-[VARIABLES]
+# 这里可以添加全局禁用的检查项
+# disable=
 
 [CLASSES]
-# 对特定文件放宽实例属性数量限制
+# 全局默认的最大实例属性数量
+max-instance-attributes=7
+
 [collective_trace.trace_collectives]
+# 仅对这个模块放宽限制
 max-instance-attributes=8
