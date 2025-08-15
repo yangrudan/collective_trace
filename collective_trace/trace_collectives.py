@@ -329,7 +329,7 @@ class CollectiveTracer:
             if is_async:
                 work = orig_func(*args, **kwargs)
                 return TimedWork(
-                    work, op_id, start_time, func_name, self
+                    work, op_id, start_time, func_name, tensor_info=tensor_info, tracer=self
                 )
 
             # Synchronous operation
