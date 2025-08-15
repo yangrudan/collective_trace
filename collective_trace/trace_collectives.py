@@ -20,20 +20,22 @@ except ImportError:
 from .get_group import get_participating_ranks
 
 function_names = [
-            "all_reduce",
-            "all_gather",
-            "reduce_scatter",
-            "broadcast",
-            "reduce_scatter_base",
-            "all_gather_base",
-            "all_gather_into_tensor",
-            "reduce_scatter_tensor",
-            "_all_gather_base",
-            "_reduce_scatter_base",
-        ]
+    "all_reduce",
+    "all_gather",
+    "reduce_scatter",
+    "broadcast",
+    "reduce_scatter_base",
+    "all_gather_base",
+    "all_gather_into_tensor",
+    "reduce_scatter_tensor",
+    "_all_gather_base",
+    "_reduce_scatter_base",
+]
+
 
 class OperationTimer:
     """Independent timer class for operation timeout detection"""
+
     def __init__(self, timeout_threshold, callback):
         """
         Args:
@@ -43,7 +45,9 @@ class OperationTimer:
         """
         self.timeout_threshold = timeout_threshold
         self.callback = callback  # Timeout callback
-        self.pending_ops = {}  # Operations to monitor: {op_id: (start_time, func_name, is_async, is_completed)}
+        self.pending_ops = (
+            {}
+        )  # Operations to monitor: {op_id: (start_time, func_name, is_async, is_completed)}
         self.lock = threading.Lock()  # Thread-safe lock for pending_ops
         self.monitor_thread = None
         self.running = False
@@ -67,14 +71,21 @@ class OperationTimer:
             current_time = time.perf_counter()
             with self.lock:
                 # Iterate through all operations to monitor
-                for op_id, (start_time, func_name, is_async, is_completed) in list(self.pending_ops.items()):
+                for op_id, (start_time, func_name, is_async, is_completed) in list(
+                    self.pending_ops.items()
+                ):
                     # Only check incomplete operations for timeouts
                     if not is_completed:
                         if current_time - start_time > self.timeout_threshold:
                             # Operation incomplete and timed out, trigger callback
                             self.callback(op_id, func_name, is_async, "unfinished")
                             # Mark as completed to avoid duplicate triggers
-                            self.pending_ops[op_id] = (start_time, func_name, is_async, True)
+                            self.pending_ops[op_id] = (
+                                start_time,
+                                func_name,
+                                is_async,
+                                True,
+                            )
             time.sleep(0.1)  # Reduce CPU usage
 
     def register_operation(self, op_id, func_name, is_async):
@@ -84,6 +95,7 @@ class OperationTimer:
             self.timeout_events[op_id] = threading.Event()
 
     def unregister_operation(self, op_id):
+        """Delete a operation and timeout event"""
         if op_id in self.pending_ops:
             del self.pending_ops[op_id]
         if op_id in self.timeout_events:
@@ -110,12 +122,15 @@ class OperationTimer:
             if op_id not in self.pending_ops:
                 return False
             start_time, _, _, is_completed = self.pending_ops[op_id]
-            return not is_completed and (time.perf_counter() - start_time > self.timeout_threshold)
+            return not is_completed and (
+                time.perf_counter() - start_time > self.timeout_threshold
+            )
 
 
 @dataclass
 class TraceConfig:
     """Configuration for tracing"""
+
     trace_file: str = None
     verbose: bool = True
     has_cuda: bool = False
@@ -125,6 +140,7 @@ class TraceConfig:
 @dataclass
 class GroupState:
     """State information about the current group"""
+
     my_rank: int = 0
     my_size: int = 1
     my_idx_in_group: int = 0
@@ -149,13 +165,17 @@ class CollectiveTracer:
         """
         # Get timeout threshold from environment variable, use default 50s if not set
         if timeout_threshold is None:
-            env_timeout = os.environ.get('COLLECTIVE_TIMEOUT')
+            env_timeout = os.environ.get("COLLECTIVE_TIMEOUT")
             if env_timeout is not None:
                 try:
                     self.timeout_threshold = float(env_timeout)
-                    print(f"Read timeout threshold from environment variable COLLECTIVE_TIMEOUT: {self.timeout_threshold}s")
+                    print(
+                        f"Read timeout threshold from environment variable COLLECTIVE_TIMEOUT: {self.timeout_threshold}s"
+                    )
                 except ValueError:
-                    print(f"Invalid value for environment variable COLLECTIVE_TIMEOUT: {env_timeout}, using default 50s")
+                    print(
+                        f"Invalid value for environment variable COLLECTIVE_TIMEOUT: {env_timeout}, using default 50s"
+                    )
                     self.timeout_threshold = 50.0
             else:
                 self.timeout_threshold = 50.0  # Default value
@@ -165,7 +185,7 @@ class CollectiveTracer:
         self.config = TraceConfig(
             trace_file=trace_file,
             verbose=verbose,
-            has_cuda=torch.cuda.is_available() if 'torch' in globals() else False,
+            has_cuda=torch.cuda.is_available() if "torch" in globals() else False,
             global_rank=0,
         )
         self.trace_data = []
@@ -176,7 +196,9 @@ class CollectiveTracer:
             if hasattr(dist, func_name):
                 self.hooked_functions[func_name] = getattr(dist, func_name)
             else:
-                print(f"!!! Function {func_name} not found in torch.distributed, skipped")
+                print(
+                    f"!!! Function {func_name} not found in torch.distributed, skipped"
+                )
 
         if not self.hooked_functions:
             print("!!! WARNING !!! No functions to trace found")
@@ -186,7 +208,7 @@ class CollectiveTracer:
 
         self.timer = OperationTimer(
             timeout_threshold=self.timeout_threshold,  # 这里改为使用成员变量
-            callback=self._timeout_callback  
+            callback=self._timeout_callback,
         )
         self.timer.start()
 
@@ -196,7 +218,7 @@ class CollectiveTracer:
             msg = f"[TIMEOUT] Operation {func_name} (ID: {op_id}) timed out without completion! Exceeded threshold {self.timeout_threshold}s"
         else:
             msg = f"[TIMEOUT] Operation {func_name} (ID: {op_id}) completed but timed out! Exceeded threshold {self.timeout_threshold}s"
-        
+
         self.log(msg)
         os.kill(os.getpid(), signal.SIGUSR1)
         self.timer.unregister_operation(op_id)
@@ -221,7 +243,15 @@ class CollectiveTracer:
 
         return wrapper
 
-    def create_trace_entry(self, func_name, start_time, duration, tensor_info, timed_out=False, is_async=False):
+    def create_trace_entry(
+        self,
+        func_name,
+        start_time,
+        duration,
+        tensor_info,
+        timed_out=False,
+        is_async=False,
+    ):
         """Create a trace entry with timeout information."""
         if tensor_info is None:
             tensor_info = {"shape": "unknown", "dtype": "unknown", "size": 0}
@@ -234,7 +264,7 @@ class CollectiveTracer:
             "tensor_dtype": str(tensor_info["dtype"]),
             "tensor_size": tensor_info["size"],
             "timed_out": timed_out,
-            "is_async": is_async
+            "is_async": is_async,
         }
 
     def _trace_wrapper(self, func_name, orig_func):
@@ -264,15 +294,19 @@ class CollectiveTracer:
 
                 # Mark operation as completed and check for timeout
                 self.tracer.timer.mark_completed(self.op_id)
-                
+
                 end_time = time.perf_counter()
                 duration = end_time - self.start_time
                 timed_out = duration > self.tracer.timer.timeout_threshold
 
                 # Create a trace entry
                 trace_entry = self.tracer.create_trace_entry(
-                    self.func_name, self.start_time, duration, self.tensor_info,
-                    timed_out, is_async=True
+                    self.func_name,
+                    self.start_time,
+                    duration,
+                    self.tensor_info,
+                    timed_out,
+                    is_async=True,
                 )
                 self.tracer.trace_data.append(trace_entry)
 
@@ -329,7 +363,12 @@ class CollectiveTracer:
             if is_async:
                 work = orig_func(*args, **kwargs)
                 return TimedWork(
-                    work, op_id, start_time, func_name, tensor_info=tensor_info, tracer=self
+                    work,
+                    op_id,
+                    start_time,
+                    func_name,
+                    tensor_info=tensor_info,
+                    tracer=self,
                 )
 
             # Synchronous operation
@@ -337,11 +376,13 @@ class CollectiveTracer:
 
             # Check if already timed out
             if self.timer.is_timed_out(op_id):
-                self.log(f"[ERROR] Synchronous operation {func_name} (ID: {op_id}) has timed out")
+                self.log(
+                    f"[ERROR] Synchronous operation {func_name} (ID: {op_id}) has timed out"
+                )
 
             # Mark operation as completed
             self.timer.mark_completed(op_id)
-            
+
             end_time = time.perf_counter()
             duration = end_time - start_time
             timed_out = duration > self.timer.timeout_threshold
@@ -376,14 +417,14 @@ class CollectiveTracer:
 
         # Try to find a tensor in positional arguments
         for arg in args:
-            if 'torch' in globals() and isinstance(arg, torch.Tensor):
+            if "torch" in globals() and isinstance(arg, torch.Tensor):
                 tensor = arg
                 break
 
         # If not found, try to find a tensor in keyword arguments
         if tensor is None:
             for _, value in kwargs.items():
-                if 'torch' in globals() and isinstance(value, torch.Tensor):
+                if "torch" in globals() and isinstance(value, torch.Tensor):
                     tensor = value
                     break
 
@@ -393,7 +434,7 @@ class CollectiveTracer:
             for attr in dir(first_arg):
                 try:
                     value = getattr(first_arg, attr)
-                    if 'torch' in globals() and isinstance(value, torch.Tensor):
+                    if "torch" in globals() and isinstance(value, torch.Tensor):
                         tensor = value
                         break
                 except (AttributeError, TypeError):
@@ -410,7 +451,7 @@ class CollectiveTracer:
 
     def hook_batch_isend_irecv(self):
         """Hook the `batch_isend_irecv` method to log batch operations with timeout detection."""
-        if not ('dist' in globals() and hasattr(dist, "batch_isend_irecv")):
+        if not ("dist" in globals() and hasattr(dist, "batch_isend_irecv")):
             print("!!! WARNING !!! batch_isend_irecv function not found")
             return
 
@@ -422,7 +463,7 @@ class CollectiveTracer:
             op_id = id((ops_list, time.time()))
             # Register operation with timer
             self.timer.register_operation(op_id, "batch_isend_irecv", is_async=True)
-            
+
             # Extract statistics
             stats = {
                 "send_total": 0,
@@ -454,7 +495,7 @@ class CollectiveTracer:
             start_time = time.perf_counter()
             # Execute original operation
             result = original_batch_isend_irecv(ops_list)
-            
+
             # Mark operation as completed
             self.timer.mark_completed(op_id)
             end_time = time.perf_counter()
@@ -485,14 +526,16 @@ class CollectiveTracer:
 
             # Record trace information
             trace_entry = self.create_trace_entry(
-                "batch_isend_irecv", start_time, duration, 
+                "batch_isend_irecv",
+                start_time,
+                duration,
                 {
                     "shape": f"send: {send_shapes_str}, recv: {recv_shapes_str}",
                     "dtype": "mixed",
-                    "size": stats["send_total"] + stats["recv_total"]
+                    "size": stats["send_total"] + stats["recv_total"],
                 },
                 timed_out,
-                is_async=True
+                is_async=True,
             )
             self.trace_data.append(trace_entry)
 
@@ -519,10 +562,10 @@ class CollectiveTracer:
             op_id = id((args, kwargs, time.time()))
             # Register operation with timer
             self.timer.register_operation(op_id, "barrier", is_async=False)
-            
+
             start_time = time.perf_counter()
             result = original_barrier(*args, **kwargs)
-            
+
             # Mark operation as completed
             self.timer.mark_completed(op_id)
             end_time = time.perf_counter()
@@ -565,18 +608,20 @@ class CollectiveTracer:
     def remove_hooks(self):
         """Remove all tracing hooks from distributed functions"""
         for func_name, orig_func in self.original_functions.items():
-            if 'dist' in globals() and hasattr(dist, func_name):
+            if "dist" in globals() and hasattr(dist, func_name):
                 setattr(dist, func_name, orig_func)
                 self.log(f"Removed hook for {func_name}")
 
         # Restore batch_isend_irecv
-        if 'batch_isend_irecv' in self.original_functions:
-            setattr(dist, 'batch_isend_irecv', self.original_functions['batch_isend_irecv'])
+        if "batch_isend_irecv" in self.original_functions:
+            setattr(
+                dist, "batch_isend_irecv", self.original_functions["batch_isend_irecv"]
+            )
             self.log("Removed hook for batch_isend_irecv")
 
         # Restore barrier
-        if 'barrier' in self.original_functions:
-            setattr(dist, 'barrier', self.original_functions['barrier'])
+        if "barrier" in self.original_functions:
+            setattr(dist, "barrier", self.original_functions["barrier"])
             self.log("Removed hook for barrier")
 
     def get_trace_data(self):
@@ -609,6 +654,5 @@ class CollectiveTracer:
 
 def _cuda_sync():
     """Synchronize CUDA devices."""
-    if 'torch' in globals() and torch.cuda.is_available():
+    if "torch" in globals() and torch.cuda.is_available():
         torch.cuda.synchronize()
-    
