@@ -122,9 +122,7 @@ class OperationTimer:
             if op_id not in self.pending_ops:
                 return False
             start_time, _, _, is_completed = self.pending_ops[op_id]
-            return not is_completed and (
-                time.perf_counter() - start_time > self.timeout_threshold
-            )
+            return not is_completed and (time.perf_counter() - start_time > self.timeout_threshold)
 
 
 @dataclass
@@ -196,9 +194,7 @@ class CollectiveTracer:
             if hasattr(dist, func_name):
                 self.hooked_functions[func_name] = getattr(dist, func_name)
             else:
-                print(
-                    f"!!! Function {func_name} not found in torch.distributed, skipped"
-                )
+                print(f"!!! Function {func_name} not found in torch.distributed, skipped")
 
         if not self.hooked_functions:
             print("!!! WARNING !!! No functions to trace found")
@@ -207,7 +203,7 @@ class CollectiveTracer:
         self.group_info = GroupState()
 
         self.timer = OperationTimer(
-            timeout_threshold=self.timeout_threshold,  # 这里改为使用成员变量
+            timeout_threshold=self.timeout_threshold,  
             callback=self._timeout_callback,
         )
         self.timer.start()
@@ -376,9 +372,7 @@ class CollectiveTracer:
 
             # Check if already timed out
             if self.timer.is_timed_out(op_id):
-                self.log(
-                    f"[ERROR] Synchronous operation {func_name} (ID: {op_id}) has timed out"
-                )
+                self.log(f"[ERROR] Synchronous operation {func_name} (ID: {op_id}) has timed out")
 
             # Mark operation as completed
             self.timer.mark_completed(op_id)
@@ -504,24 +498,16 @@ class CollectiveTracer:
 
             # Format output information
             send_targets_str = (
-                ", ".join(map(str, stats["send_targets"]))
-                if stats["send_targets"]
-                else "Null"
+                ", ".join(map(str, stats["send_targets"])) if stats["send_targets"] else "Null"
             )
             recv_sources_str = (
-                ", ".join(map(str, stats["recv_sources"]))
-                if stats["recv_sources"]
-                else "Null"
+                ", ".join(map(str, stats["recv_sources"])) if stats["recv_sources"] else "Null"
             )
             send_shapes_str = (
-                ", ".join(map(str, stats["send_shapes"]))
-                if stats["send_shapes"]
-                else "Null"
+                ", ".join(map(str, stats["send_shapes"])) if stats["send_shapes"] else "Null"
             )
             recv_shapes_str = (
-                ", ".join(map(str, stats["recv_shapes"]))
-                if stats["recv_shapes"]
-                else "Null"
+                ", ".join(map(str, stats["recv_shapes"])) if stats["recv_shapes"] else "Null"
             )
 
             # Record trace information
@@ -572,9 +558,7 @@ class CollectiveTracer:
             duration = end_time - start_time
             timed_out = duration > self.timer.timeout_threshold
 
-            trace_entry = self.create_trace_entry(
-                "barrier", start_time, duration, None, timed_out
-            )
+            trace_entry = self.create_trace_entry("barrier", start_time, duration, None, timed_out)
             self.trace_data.append(trace_entry)
 
             self.log(
@@ -614,9 +598,7 @@ class CollectiveTracer:
 
         # Restore batch_isend_irecv
         if "batch_isend_irecv" in self.original_functions:
-            setattr(
-                dist, "batch_isend_irecv", self.original_functions["batch_isend_irecv"]
-            )
+            setattr(dist, "batch_isend_irecv", self.original_functions["batch_isend_irecv"])
             self.log("Removed hook for batch_isend_irecv")
 
         # Restore barrier
