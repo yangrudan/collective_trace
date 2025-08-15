@@ -1,0 +1,18 @@
+[MASTER]
+ignore-patterns=^tests/
+
+[MESSAGES CONTROL]
+disable=
+
+[TYPECHECK]
+
+[FORMAT]
+
+[SIMILARITIES]
+
+[VARIABLES]
+
+[CLASSES]
+# 对特定文件放宽实例属性数量限制
+[collective_trace.trace_collectives]
+max-instance-attributes=8
