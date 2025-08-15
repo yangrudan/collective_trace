@@ -5,11 +5,9 @@ Core functions for collective tracing
 import csv
 import time
 import threading
-from queue import Queue
 from functools import wraps
 from collections import defaultdict
 from dataclasses import dataclass
-import csv
 import os
 import signal
 
@@ -247,9 +245,8 @@ class CollectiveTracer:
             A class to wrap the work and time it, with timeout detection.
             """
 
-            def __init__(self, work, op_id, start_time, func_name, tensor_info, tracer):
+            def __init__(self, work, start_time, func_name, **kwargs):
                 self.work = work
-                self.op_id = op_id
                 self.start_time = start_time
                 self.func_name = func_name
                 self.tensor_info = kwargs.get(
