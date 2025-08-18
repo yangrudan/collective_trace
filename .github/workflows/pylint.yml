@@ -18,7 +18,13 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install torch==${{ matrix.torch-version }}+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
+        if [ "${{ matrix.torch-version }}" = "1.10.0" ]; then
+          # 1.10.0没有单独的cpu版本，使用通用版本
+          pip install torch==${{ matrix.torch-version }} -f https://download.pytorch.org/whl/cpu/torch_stable.html
+        else
+          # 1.13.1及以上版本使用cpu专用版本
+          pip install torch==${{ matrix.torch-version }}+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
+        fi
         pip install pylint
         pip install -e ".[dev]"
     - name: Analysing the code with pylint
