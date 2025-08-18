@@ -7,7 +7,7 @@ import time
 import threading
 from functools import wraps
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Dict
 
 try:
@@ -54,18 +54,17 @@ class GroupState:
     my_rank: int = 0
     my_size: int = 1
     my_idx_in_group: int = 0
-    participate_ranks: list = None
+    participate_ranks: list = field(default_factory=list)
 
-    def __post_init__(self):
-        if self.participate_ranks is None:
-            self.participate_ranks = []
 
 @dataclass
 class RealTimeState:
     """Real-time state information"""
-    running_primitives: List[Dict] = []
-    completed_primitives: List[Dict] = []
+
+    running_primitives: List[Dict] = field(default_factory=list)
+    completed_primitives: List[Dict] = field(default_factory=list)
     display_interval = 1
+
 
 class CollectiveTracer:
     """
