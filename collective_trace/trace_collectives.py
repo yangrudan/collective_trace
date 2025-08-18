@@ -59,41 +59,39 @@ class GroupState:
 
 class TimeOutDaemon:
     """
-    Daemon thread that monitors and handles timeouts of collective operations.
+    Daemon thread class that monitors and handles timeouts for 
+    collective operations.
+    
+    This class retrieves the timeout threshold from environment 
+    variables or parameters,creates and manages a timer, and 
+    invokes the specified callback function when a timeout occurs.
     """
+    # Define default timeout threshold as integer
+    DEFAULT_TIMEOUT_THRESHOLD = 480  # 8 minutes (integer value)
 
-    def __init__(self, timeout_threshold, callback):
-        # Get timeout threshold from environment variable, use default 50s if
-        # not set
-        if timeout_threshold is None:
-            env_timeout = os.environ.get("COLLECTIVE_TIMEOUT")
-            if env_timeout is not None:
-                try:
-                    self.timeout_threshold = float(env_timeout)
-                    print(
-                        f"Read timeout threshold from environment variable \
-                              COLLECTIVE_TIMEOUT: {self.timeout_threshold}s"
-                    )
-                except ValueError:
-                    print(
-                        f"Invalid value for environment variable \
-                           COLLECTIVE_TIMEOUT: {env_timeout}, using default 50s"
-                    )
-                    self.timeout_threshold = 50.0
-            else:
-                self.timeout_threshold = 50.0  # Default value
-        else:
-            self.timeout_threshold = timeout_threshold
-
-        self.timer = OperationTimer(timeout_threshold, callback)
+    def __init__(self, callback):
+        """Initialize a TimeOutDaemon instance"""
+        self.timeout_threshold = self._resolve_timeout_threshold()
+        self.timer = OperationTimer(self.timeout_threshold, callback)
         self.timer.start()
 
+    def _resolve_timeout_threshold(self):
+        """Resolve the timeout threshold with priority: environment variable > default value"""
+        env_timeout = os.environ.get("COLLECTIVE_TIMEOUT")
+        if env_timeout is not None:
+            try:
+                return int(env_timeout)
+            except ValueError:
+                pass
+        
+        return self.DEFAULT_TIMEOUT_THRESHOLD
+
     def stop(self):
-        """Stop the daemon"""
+        """Stop the daemon thread and timer"""
         self.timer.stop()
 
     def get_timeout_threshold(self):
-        """Get the timeout threshold in seconds"""
+        """Get the currently set timeout threshold in seconds"""
         return self.timeout_threshold
 
 
@@ -134,7 +132,7 @@ class CollectiveTracer:
         self.call_counts = defaultdict(lambda: defaultdict(lambda: {"count": 0}))
         self.group_info = GroupState()
 
-        self.timeout_daemon = TimeOutDaemon(timeout_threshold, self._timeout_callback)
+        self.timeout_daemon = TimeOutDaemon(self._timeout_callback)
 
     def _timeout_callback(self, op_id, func_name, is_async, timed_out_type):
         """Timeout callback: log timeout events"""
