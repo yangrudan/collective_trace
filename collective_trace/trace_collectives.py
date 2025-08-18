@@ -59,13 +59,14 @@ class GroupState:
 
 class TimeOutDaemon:
     """
-    Daemon thread class that monitors and handles timeouts for 
+    Daemon thread class that monitors and handles timeouts for
     collective operations.
-    
-    This class retrieves the timeout threshold from environment 
-    variables or parameters,creates and manages a timer, and 
+
+    This class retrieves the timeout threshold from environment
+    variables or parameters,creates and manages a timer, and
     invokes the specified callback function when a timeout occurs.
     """
+
     # Define default timeout threshold as integer
     DEFAULT_TIMEOUT_THRESHOLD = 480  # 8 minutes (integer value)
 
@@ -83,7 +84,7 @@ class TimeOutDaemon:
                 return int(env_timeout)
             except ValueError:
                 pass
-        
+
         return self.DEFAULT_TIMEOUT_THRESHOLD
 
     def stop(self):
@@ -100,7 +101,7 @@ class CollectiveTracer:
     Trace collective operations for distributed training with timeout detection.
     """
 
-    def __init__(self, trace_file=None, verbose=True, timeout_threshold=None):
+    def __init__(self, trace_file=None, verbose=True):
         """
         Args:
             trace_file: Log file to store trace data, if None, no file will be created
@@ -111,7 +112,7 @@ class CollectiveTracer:
         self.config = TraceConfig(
             trace_file=trace_file,
             verbose=verbose,
-            has_cuda=torch.cuda.is_available() if "torch" in globals() else False,
+            has_cuda=torch.cuda.is_available(),
             global_rank=0,
         )
         self.trace_data = []
@@ -322,14 +323,14 @@ class CollectiveTracer:
 
         # Try to find a tensor in positional arguments
         for arg in args:
-            if "torch" in globals() and isinstance(arg, torch.Tensor):
+            if isinstance(arg, torch.Tensor):
                 tensor = arg
                 break
 
         # If not found, try to find a tensor in keyword arguments
         if tensor is None:
             for _, value in kwargs.items():
-                if "torch" in globals() and isinstance(value, torch.Tensor):
+                if isinstance(value, torch.Tensor):
                     tensor = value
                     break
 
@@ -340,7 +341,7 @@ class CollectiveTracer:
             for attr in dir(first_arg):
                 try:
                     value = getattr(first_arg, attr)
-                    if "torch" in globals() and isinstance(value, torch.Tensor):
+                    if isinstance(value, torch.Tensor):
                         tensor = value
                         break
                 except (AttributeError, TypeError):
@@ -357,7 +358,7 @@ class CollectiveTracer:
 
     def hook_batch_isend_irecv(self):
         """Hook the `batch_isend_irecv` method to log batch operations with timeout detection."""
-        if not ("dist" in globals() and hasattr(dist, "batch_isend_irecv")):
+        if not hasattr(dist, "batch_isend_irecv"):
             print("!!! WARNING !!! batch_isend_irecv function not found")
             return
 
@@ -493,7 +494,7 @@ class CollectiveTracer:
     def remove_hooks(self):
         """Remove all tracing hooks from distributed functions"""
         for func_name, orig_func in self.original_functions.items():
-            if "dist" in globals() and hasattr(dist, func_name):
+            if hasattr(dist, func_name):
                 setattr(dist, func_name, orig_func)
                 self.log(f"Removed hook for {func_name}")
 
@@ -539,5 +540,5 @@ class CollectiveTracer:
 
 def _cuda_sync():
     """Synchronize CUDA devices."""
-    if "torch" in globals() and torch.cuda.is_available():
+    if torch.cuda.is_available():
         torch.cuda.synchronize()
