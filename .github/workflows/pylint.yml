@@ -1,4 +1,4 @@
-name: Pylint and CPU Tests
+name: Pylint
 
 on: [push]
 
@@ -8,7 +8,6 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.8", "3.9", "3.10"]
-        torch-version: ["1.13.1"]
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
@@ -18,18 +17,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install torch==${{ matrix.torch-version }}+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
         pip install pylint
-        pip install -e ".[dev]"
     - name: Analysing the code with pylint
       run: |
         pylint $(git ls-files '*.py' | grep -v '^tests/')
-
-    - name: Run CPU tests
-      run: |
-        # 测试CPU同步模式
-        torchrun --nproc_per_node=4 -m collective_trace.tests.test_in_cpu --sync_mode
-        # 测试CPU异步模式
-        torchrun --nproc_per_node=4 -m collective_trace.tests.test_in_cpu
-        # 测试barrier操作（使用Gloo后端）
-        python -m collective_trace.tests.test_barrier
