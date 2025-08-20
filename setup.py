@@ -8,7 +8,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="collective-trace",
-    version="0.1.1",
+    version="0.1.2",
     author="Cookie Yang",
     author_email="yangrudan@zhejianglab.org",
     description="A monkey-patching tool for tracing collective operations",
