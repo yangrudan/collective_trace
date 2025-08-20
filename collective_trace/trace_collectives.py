@@ -16,6 +16,7 @@ try:
 except ImportError:
     print("!!! PyTorch not found, skipped")
 
+from .async_logger import RankedAsyncLogger
 from .get_group import get_participating_ranks
 from .timeout_daemon import OperationTimer
 
@@ -41,6 +42,7 @@ class TraceConfig:
     verbose: bool = True
     has_cuda: bool = False
     global_rank: int = 0
+    async_logger: RankedAsyncLogger = None # Lazy initialization(wait for global ranks verified)
 
 
 @dataclass
@@ -114,6 +116,7 @@ class CollectiveTracer:
             verbose=verbose,
             has_cuda=torch.cuda.is_available(),
             global_rank=0,
+            async_logger=None,
         )
         self.trace_data = []
         self.original_functions = {}
@@ -155,10 +158,8 @@ class CollectiveTracer:
         """Log a message to console and/or file."""
         if self.config.verbose:
             print(message)
-        if self.config.trace_file:
-            ranked_filename = f"{self.config.trace_file}-{self.config.global_rank}"
-            with open(ranked_filename, "a", encoding="utf-8") as f:
-                f.write(message + "\n")
+        if self.config.async_logger:
+            self.config.async_logger.log(message)
 
     def with_global_rank(self, func):
         """Decorator that updates global rank before calling the wrapped function"""
@@ -167,6 +168,12 @@ class CollectiveTracer:
         def wrapper(*args, **kwargs):
             if dist.is_available() and dist.is_initialized():
                 self.config.global_rank = dist.get_rank()
+
+                if self.config.async_logger is None and self.config.trace_file:
+                    self.config.async_logger = RankedAsyncLogger(
+                        base_log_file=self.config.trace_file,
+                        rank=self.config.global_rank
+                    )
             return func(*args, **kwargs)
 
         return wrapper
@@ -536,6 +543,9 @@ class CollectiveTracer:
     def __del__(self):
         """Clean up resources and stop timer"""
         self.timeout_daemon.timer.stop()
+
+        if hasattr(self, 'config') and self.config.async_logger:
+            self.config.async_logger.close()
 
 
 def _cuda_sync():
