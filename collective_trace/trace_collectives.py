@@ -9,6 +9,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 import os
 import signal
+import uuid
 
 try:
     import torch
@@ -59,7 +60,7 @@ class GroupState:
             self.participate_ranks = []
 
 
-class TimeOutDaemon:
+class TimeOutDaemon(OperationTimer):
     """
     Daemon thread class that monitors and handles timeouts for
     collective operations.
@@ -74,9 +75,9 @@ class TimeOutDaemon:
 
     def __init__(self, callback):
         """Initialize a TimeOutDaemon instance"""
-        self.timeout_threshold = self._resolve_timeout_threshold()
-        self.timer = OperationTimer(self.timeout_threshold, callback)
-        self.timer.start()
+        timeout_threshold = self._resolve_timeout_threshold()
+        super().__init__(timeout_threshold, callback)
+        self.start()  # Start the monitoring thread in the constructor
 
     def _resolve_timeout_threshold(self):
         """Resolve the timeout threshold with priority: environment variable > default value"""
@@ -88,10 +89,6 @@ class TimeOutDaemon:
                 pass
 
         return self.DEFAULT_TIMEOUT_THRESHOLD
-
-    def stop(self):
-        """Stop the daemon thread and timer"""
-        self.timer.stop()
 
     def get_timeout_threshold(self):
         """Get the currently set timeout threshold in seconds"""
@@ -152,7 +149,7 @@ class CollectiveTracer:
 
         self.log(msg)
         os.kill(os.getpid(), signal.SIGUSR1)
-        self.timeout_daemon.timer.unregister_operation(op_id)
+        self.timeout_daemon.unregister_operation(op_id)
 
     def log(self, message):
         """Log a message to console and/or file."""
@@ -211,8 +208,13 @@ class CollectiveTracer:
                 self.tracer = kwargs.get("tracer")
 
             def wait(self):
-                """Wait for the wrapped work to complete and record the timing info."""
+                """ Wait for the wrapped work to complete and record the timing info """
+                self.timeout_daemon.register_operation(op_id, func_name, is_async)
+
                 result = self.work.wait()
+
+                # Mark operation as completed
+                self.tracer.timeout_daemon.mark_completed(self.op_id)
 
                 # if self.tracer.has_cuda:
                 #     _cuda_sync()
@@ -270,10 +272,7 @@ class CollectiveTracer:
 
             is_async = kwargs.get("async_op", False)
             # Generate unique operation ID
-            op_id = id((args, kwargs, time.time()))
-
-            # Register operation with timer
-            self.timeout_daemon.timer.register_operation(op_id, func_name, is_async)
+            op_id = uuid.uuid4()  
 
             if is_async:
                 work = orig_func(*args, **kwargs)
@@ -286,17 +285,20 @@ class CollectiveTracer:
                     tracer=self,
                 )
 
+            # Register operation with timer
+            self.timeout_daemon.register_operation(op_id, func_name, is_async)
+
             # Synchronous operation
             result = orig_func(*args, **kwargs)
 
             # Check if already timed out
-            if self.timeout_daemon.timer.is_timed_out(op_id):
+            if self.timeout_daemon.is_timed_out(op_id):
                 self.log(
                     f"[ERROR] Synchronous operation {func_name} (ID: {op_id}) has timed out"
                 )
 
             # Mark operation as completed
-            self.timeout_daemon.timer.mark_completed(op_id)
+            self.timeout_daemon.mark_completed(op_id)
 
             end_time = time.perf_counter()
             duration = end_time - start_time
@@ -374,9 +376,9 @@ class CollectiveTracer:
         @self.with_global_rank
         def wrapped_batch_isend_irecv(ops_list):
             # Generate unique operation ID
-            op_id = id((ops_list, time.time()))
+            op_id = uuid.uuid4()
             # Register operation with timer
-            self.timeout_daemon.timer.register_operation(
+            self.timeout_daemon.register_operation(
                 op_id, "batch_isend_irecv", is_async=True
             )
 
@@ -412,7 +414,7 @@ class CollectiveTracer:
             result = original_batch_isend_irecv(ops_list)
 
             # Mark operation as completed
-            self.timeout_daemon.timer.mark_completed(op_id)
+            self.timeout_daemon.mark_completed(op_id)
 
             # Format output information
             send_targets_str = (
@@ -454,9 +456,9 @@ class CollectiveTracer:
         @wraps(original_barrier)
         def barrier_traced(*args, **kwargs):
             # Generate unique operation ID
-            op_id = id((args, kwargs, time.time()))
+            op_id = uuid.uuid4()
             # Register operation with timer
-            self.timeout_daemon.timer.register_operation(
+            self.timeout_daemon.register_operation(
                 op_id, "barrier", is_async=False
             )
 
@@ -464,7 +466,7 @@ class CollectiveTracer:
             result = original_barrier(*args, **kwargs)
 
             # Mark operation as completed
-            self.timeout_daemon.timer.mark_completed(op_id)
+            self.timeout_daemon.mark_completed(op_id)
             end_time = time.perf_counter()
             duration = end_time - start_time
 
@@ -542,7 +544,7 @@ class CollectiveTracer:
 
     def __del__(self):
         """Clean up resources and stop timer"""
-        self.timeout_daemon.timer.stop()
+        self.timeout_daemon.stop()
 
         if hasattr(self, 'config') and self.config.async_logger:
             self.config.async_logger.close()

@@ -26,7 +26,6 @@ class OperationTimer:
         self.lock = threading.Lock()  # Thread-safe lock for pending_ops
         self.monitor_thread = None
         self.running = False
-        self.timeout_events = {}  # Store operation timeout events
 
     def start(self):
         """Start the monitoring thread"""
@@ -68,14 +67,11 @@ class OperationTimer:
         """Register a new operation and start timing"""
         with self.lock:
             self.pending_ops[op_id] = (time.perf_counter(), func_name, is_async, False)
-            self.timeout_events[op_id] = threading.Event()
 
     def unregister_operation(self, op_id):
         """Delete a operation and timeout event"""
         if op_id in self.pending_ops:
             del self.pending_ops[op_id]
-        if op_id in self.timeout_events:
-            del self.timeout_events[op_id]
 
     def mark_completed(self, op_id):
         """Mark operation as completed and check if it finished late"""
@@ -88,10 +84,7 @@ class OperationTimer:
                     self.callback(op_id, func_name, is_async, "finished_late")
                 # Remove completed operation
                 del self.pending_ops[op_id]
-                if op_id in self.timeout_events:
-                    self.timeout_events[op_id].set()
-                    del self.timeout_events[op_id]
-
+        
     def is_timed_out(self, op_id):
         """Check if an operation has timed out"""
         with self.lock:
