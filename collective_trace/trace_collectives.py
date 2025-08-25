@@ -209,7 +209,7 @@ class CollectiveTracer:
 
             def wait(self):
                 """ Wait for the wrapped work to complete and record the timing info """
-                self.timeout_daemon.register_operation(op_id, func_name, is_async)
+                self.tracer.timeout_daemon.register_operation(self.op_id, self.func_name, True)
 
                 result = self.work.wait()
 
@@ -272,7 +272,7 @@ class CollectiveTracer:
 
             is_async = kwargs.get("async_op", False)
             # Generate unique operation ID
-            op_id = uuid.uuid4()  
+            op_id = uuid.uuid4()
 
             if is_async:
                 work = orig_func(*args, **kwargs)
