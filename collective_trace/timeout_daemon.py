@@ -84,7 +84,7 @@ class OperationTimer:
                     self.callback(op_id, func_name, is_async, "finished_late")
                 # Remove completed operation
                 del self.pending_ops[op_id]
-        
+
     def is_timed_out(self, op_id):
         """Check if an operation has timed out"""
         with self.lock:
