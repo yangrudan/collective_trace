@@ -8,7 +8,7 @@ from collections import defaultdict
 from pretty_print import pretty_print, parse_pat
 
 # ----------------------------- 可配置项 ------------------------
-LOG_FLODER_FILE = '/home/yang/Downloads/coll-0811'          # 日志路径
+LOG_FLODER_FILE = '/home/yang/Downloads/0821'          # 日志路径
 # --------------------------------------------------------------
 
 
