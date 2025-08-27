@@ -6,6 +6,7 @@ in a distributed computing environment, with utilities to track group IDs
 and handle group creation exceptions.
 """
 
+import datetime
 import os
 from typing import Optional, Tuple, List
 
@@ -104,7 +105,7 @@ def get_participating_ranks(
             port=int(os.environ["MASTER_PORT"]),
             world_size=world_size,
             is_master=(rank == 0),
-            timeout=torch.timedelta(seconds=30),
+            timeout=datetime.timedelta(seconds=30),
         )
 
         store_key = f"rank_in_group_{group_id}"
