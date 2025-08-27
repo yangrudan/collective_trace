@@ -41,7 +41,7 @@ pip install -e .
 pip install .
 ```
 
-#### 编译发布（暂未进行）
+#### 编译发布（[已发布PyPI](https://pypi.org/project/collective-trace/)）
 
 ```bash
 # 安装编译依赖
