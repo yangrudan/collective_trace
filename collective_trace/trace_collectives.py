@@ -18,6 +18,7 @@ except ImportError:
     print("!!! PyTorch not found, skipped")
 
 from .async_logger import RankedAsyncLogger
+from .hook_coalescing_manager import hook_coalescing_manager
 from .get_group import get_participating_ranks
 from .timeout_daemon import OperationTimer
 
@@ -499,6 +500,9 @@ class CollectiveTracer:
             original_barrier = getattr(dist, "barrier")
             setattr(dist, "barrier", self._trace_barrier(original_barrier))
             print("Applied hook to barrier")
+
+        hook_coalescing_manager()
+        print("Applied hook to hook_coalescing_manager")
 
     def remove_hooks(self):
         """Remove all tracing hooks from distributed functions"""
