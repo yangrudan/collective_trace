@@ -4,7 +4,7 @@ hook _coalesing_manager
 1. 注意torch版本, 低版本无_CoalesingManager,  _coalescing_manager参数为(group, device, reqs)!!
 2. 注意hook时机, 在torch.distributed.distributed_c10d._coalescing_manager被赋值之前
 3. TODO 捕获合并的原语名称, 便于后续统计
-4. TODO from 方式可能无法替换成功
+4. from 方式可能无法替换成功
 """
 
 import time
@@ -14,7 +14,7 @@ from typing import Optional, List
 try:
     import torch
     import torch.distributed as dist
-    from torch.distributed.distributed_c10d import _coalescing_manager
+    import torch.distributed.distributed_c10d._coalescing_manager
 except ImportError:
     pass
 

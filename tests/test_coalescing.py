@@ -32,3 +32,6 @@ def main():
             dist.all_reduce(tensor)
     # 在with块外调用wait
     cm.wait()
+
+
+main()
