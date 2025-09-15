@@ -6,7 +6,6 @@ hook _coalesing_manager
 3. TODO 捕获合并的原语名称, 便于后续统计
 4. from 方式可能无法替换成功
 """
-import sys
 import time
 from contextlib import contextmanager
 from typing import Optional, List
@@ -38,12 +37,6 @@ def hook_coalescing_manager():
     print("=== Entering hook_coalescing_manager ===")  # 新增
     # pylint: disable=protected-access
     origin_coalescing_manager = dist._coalescing_manager
-
-#    if 'torch.distributed' in sys.modules:
-#        dist_module = sys.modules['torch.distributed']
-#        # 更新模块的 _coalescing_manager 属性（确保后续导入使用钩子版本）
-#        setattr(dist_module, '_coalescing_manager', timed_coalescing_manager)
-#    
 
     if IS_OLD_VERSION:
         # PyTorch (<=2.0.1)，_coalescing_manager参数为(group, device, reqs)
@@ -145,55 +138,5 @@ def hook_coalescing_manager():
                     if not async_ops:
                         print_timing(timing_details)
 
-    print(f"=== Replaced _coalescing_manager: {dist._coalescing_manager.__name__} ===")
     # pylint: disable=protected-access
     dist._coalescing_manager = timed_coalescing_manager
-
-
-# ------------------------------
-# 使用示例
-# ------------------------------
-# if __name__ == "__main__":
-#     # 初始化分布式环境（示例配置）
-#     dist.init_process_group(backend="nccl")
-#     rank = dist.get_rank()
-#     device = torch.device(f"cuda:{rank % torch.cuda.device_count()}")
-
-#     hook_coalescing_manager()
-
-
-#     if IS_OLD_VERSION:
-#         print("\n=== 2.0.1 同步版本 ===")
-#         tensor1 = torch.ones(10, device=device, dtype=torch.float32) * rank
-#         tensor2 = torch.ones(10, device=device, dtype=torch.float32) * rank
-#         reqs = []  # 用于收集通信请求的列表
-
-#         hook_coalescing_manager()
-
-#         with _coalescing_manager(
-#                 group=None,  # None表示使用默认进程组
-#                 device=device,
-#                 reqs=reqs
-#             ) as _:
-#                 # 提交2个异步通信操作（必须用async_op=True才能生成req）
-#             req1 = dist.all_reduce(tensor1, async_op=True)  # 对tensor1做all_reduce
-#             req2 = dist.all_reduce(tensor2, async_op=True)  # 对tensor2做all_reduce
-#             reqs.extend([req1, req2])  # 关键：确保请求数量与通信操作数量一致
-
-#     else:
-#         # 示例1：异步模式 - wait在with块内调用
-#         print("\n=== 异步模式（wait在with块内） ===")
-#         tensors = [torch.randn(1024, device=device) for _ in range(4)]
-#         with _coalescing_manager(device=device, async_ops=True) as cm:
-#             for tensor in tensors:
-#                 dist.all_reduce(tensor)
-#             cm.wait()  # 在with块内调用wait
-
-#         # 示例2：异步模式 - wait在with块外调用
-#         print("\n=== 异步模式（wait在with块外） ===")
-#         tensors = [torch.randn(1024, device=device) for _ in range(4)]
-#         with _coalescing_manager(device=device, async_ops=True) as cm:
-#             for tensor in tensors:
-#                 dist.all_reduce(tensor)
-#         # 在with块外调用wait
-#         cm.wait()
