@@ -10,9 +10,8 @@ from collective_trace.collective_trace import trace_all_collectives
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--sync_mode", action="store_true", help="启用同步通信模式")
-    args = parser.parse_args()
 
-    tracer = trace_all_collectives(trace_file="collective_trace.log", verbose=True)
+    trace_all_collectives(trace_file="collective_trace.log", verbose=True)
     dist.init_process_group(backend="nccl")
     rank = dist.get_rank()
     device = torch.device(f"cuda:{rank % torch.cuda.device_count()}")
