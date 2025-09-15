@@ -6,7 +6,7 @@ hook _coalesing_manager
 3. TODO 捕获合并的原语名称, 便于后续统计
 4. from 方式可能无法替换成功
 """
-
+import sys
 import time
 from contextlib import contextmanager
 from typing import Optional, List
@@ -38,6 +38,12 @@ def hook_coalescing_manager():
     print("=== Entering hook_coalescing_manager ===")  # 新增
     # pylint: disable=protected-access
     origin_coalescing_manager = dist._coalescing_manager
+
+#    if 'torch.distributed' in sys.modules:
+#        dist_module = sys.modules['torch.distributed']
+#        # 更新模块的 _coalescing_manager 属性（确保后续导入使用钩子版本）
+#        setattr(dist_module, '_coalescing_manager', timed_coalescing_manager)
+#    
 
     if IS_OLD_VERSION:
         # PyTorch (<=2.0.1)，_coalescing_manager参数为(group, device, reqs)
