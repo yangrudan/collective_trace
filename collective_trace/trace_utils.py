@@ -49,3 +49,4 @@ def extract_tensor_info(args, kwargs):
         "dtype": tensor.dtype,
         "size": tensor.element_size() * tensor.numel(),
     }
+    

@@ -4,5 +4,5 @@ generated-members=torch.*
 [MESSAGES CONTROL]
 # 屏蔽指定的警告（添加到已有的 disable 列表中，用逗号分隔）
 disable=
-    W0603,  # Using the global statement
-    W0143   # Comparing against a callable
+    W0603,   # Using the global statement
+    W0143,   # Comparing against a callable

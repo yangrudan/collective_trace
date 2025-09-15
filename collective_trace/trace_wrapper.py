@@ -1,4 +1,5 @@
 """Wrapper functions for tracing PyTorch distributed collective operations."""
+
 import time
 import uuid
 from functools import wraps
@@ -6,22 +7,26 @@ from .get_group import get_participating_ranks
 from .trace_utils import cuda_sync, extract_tensor_info
 
 try:
-    import torch
     import torch.distributed as dist
 except ImportError:
     print("!!! PyTorch not found, skipped")
 
+
 class TimedWork:
     """Wrap async work to track completion and timing"""
-    def __init__(self, work, op_id, start_time, func_name, tensor_info, tracer):
+
+    def __init__(self, work, op_id, start_time, func_name, **kwargs):
         self.work = work
         self.op_id = op_id
         self.start_time = start_time
         self.func_name = func_name
-        self.tensor_info = tensor_info
-        self.tracer = tracer
+        self.tensor_info = kwargs.get(
+            "tensor_info", {"shape": "unknown", "dtype": "unknown", "size": 0}
+        )
+        self.tracer = kwargs.get("tracer")
 
     def wait(self):
+        """Wait for the work to complete"""
         self.tracer.timeout_manager.register_operation(self.op_id, self.func_name, True)
         result = self.work.wait()
         self.tracer.timeout_manager.mark_completed(self.op_id)
@@ -39,22 +44,25 @@ class TimedWork:
             f"[TRACE] global rank {self.tracer.config.global_rank} "
             f"in GROUP_{self.tracer.group_info.my_idx_in_group} "
             f"- {self.func_name} - async:1, "
-            f"Size: {self.tensor_info['size']/1024/1024:.2f} MB, "
+            f"Size: {self.tensor_info['size'] / 1024 / 1024:.2f} MB, "
             f"Shape: {self.tensor_info['shape']}, "
             f"Dtype: {self.tensor_info['dtype']}, "
-            f"Duration: {duration*1e3:.3f} ms, "
+            f"Duration: {duration * 1e3:.3f} ms, "
             f"GROUP size {self.tracer.group_info.my_size}  = "
             f"{self.tracer.group_info.participate_ranks}, "
-            f"call count: {self.tracer.call_counts[self.func_name][self.tensor_info['shape']]['count']}"
+            f"call count: "
+            f"{self.tracer.call_counts[self.func_name][self.tensor_info['shape']]['count']}"
         )
         return result
 
     def is_completed(self):
+        """Check if the work is completed"""
         return self.work.is_completed()
 
 
 def create_function_wrapper(func_name, orig_func, tracer):
     """Create wrapper for collective functions"""
+
     @tracer.with_global_rank
     @wraps(orig_func)
     def wrapper(*args, **kwargs):
@@ -78,40 +86,53 @@ def create_function_wrapper(func_name, orig_func, tracer):
 
         if is_async:
             work = orig_func(*args, **kwargs)
-            return TimedWork(work, op_id, start_time, func_name, tensor_info, tracer)
+            return TimedWork(
+                work,
+                op_id,
+                start_time,
+                func_name,
+                tensor_info=tensor_info,
+                tracer=tracer,
+            )
 
         # Synchronous operation
         tracer.timeout_manager.register_operation(op_id, func_name, is_async)
         result = orig_func(*args, **kwargs)
 
         if tracer.timeout_manager.is_timed_out(op_id):
-            tracer.log(f"[ERROR] Synchronous operation {func_name} (ID: {op_id}) has timed out")
+            tracer.log(
+                f"[ERROR] Synchronous operation {func_name} (ID: {op_id}) has timed out"
+            )
 
         tracer.timeout_manager.mark_completed(op_id)
         end_time = time.perf_counter()
         duration = end_time - start_time
 
-        trace_entry = tracer.create_trace_entry(func_name, start_time, duration, tensor_info)
+        trace_entry = tracer.create_trace_entry(
+            func_name, start_time, duration, tensor_info
+        )
         tracer.trace_data.append(trace_entry)
 
         tracer.log(
             f"[TRACE] global rank {tracer.config.global_rank} "
             f"in GROUP_{tracer.group_info.my_idx_in_group} "
             f"- {func_name} - async:0, "
-            f"Size: {tensor_info['size']/1024/1024:.2f} MB, "
+            f"Size: {tensor_info['size'] / 1024 / 1024:.2f} MB, "
             f"Shape: {tensor_info['shape']}, "
             f"Dtype: {tensor_info['dtype']}, "
-            f"Duration: {duration*1e3:.3f} ms, "
+            f"Duration: {duration * 1e3:.3f} ms, "
             f"GROUP size {tracer.group_info.my_size}  = "
             f"{tracer.group_info.participate_ranks}, "
             f"call count: {tracer.call_counts[func_name][tensor_info['shape']]['count']}"
         )
         return result
+
     return wrapper
 
 
 def create_barrier_wrapper(original_barrier, tracer):
     """Create wrapper for barrier function"""
+
     @tracer.with_global_rank
     @wraps(original_barrier)
     def wrapper(*args, **kwargs):
@@ -131,24 +152,31 @@ def create_barrier_wrapper(original_barrier, tracer):
         tracer.log(
             f"[BARRIER] global rank {tracer.config.global_rank} -"
             f"barrier - async:0, "
-            f"Duration: {duration*1e3:.3f} ms"
+            f"Duration: {duration * 1e3:.3f} ms"
         )
         return result
+
     return wrapper
 
 
 def create_batch_isend_irecv_wrapper(original_func, tracer):
     """Create wrapper for batch_isend_irecv function"""
+
     @tracer.with_global_rank
     def wrapper(ops_list):
         op_id = uuid.uuid4()
-        tracer.timeout_manager.register_operation(op_id, "batch_isend_irecv", is_async=True)
+        tracer.timeout_manager.register_operation(
+            op_id, "batch_isend_irecv", is_async=True
+        )
 
         # Extract statistics
         stats = {
-            "send_total": 0, "recv_total": 0,
-            "send_targets": [], "send_shapes": [],
-            "recv_sources": [], "recv_shapes": []
+            "send_total": 0,
+            "recv_total": 0,
+            "send_targets": [],
+            "send_shapes": [],
+            "recv_sources": [],
+            "recv_shapes": [],
         }
 
         for op in ops_list:
@@ -174,10 +202,26 @@ def create_batch_isend_irecv_wrapper(original_func, tracer):
         tracer.timeout_manager.mark_completed(op_id)
 
         # Format log
-        send_targets_str = ", ".join(map(str, stats["send_targets"])) if stats["send_targets"] else "Null"
-        recv_sources_str = ", ".join(map(str, stats["recv_sources"])) if stats["recv_sources"] else "Null"
-        send_shapes_str = ", ".join(map(str, stats["send_shapes"])) if stats["send_shapes"] else "Null"
-        recv_shapes_str = ", ".join(map(str, stats["recv_shapes"])) if stats["recv_shapes"] else "Null"
+        send_targets_str = (
+            ", ".join(map(str, stats["send_targets"]))
+            if stats["send_targets"]
+            else "Null"
+        )
+        recv_sources_str = (
+            ", ".join(map(str, stats["recv_sources"]))
+            if stats["recv_sources"]
+            else "Null"
+        )
+        send_shapes_str = (
+            ", ".join(map(str, stats["send_shapes"]))
+            if stats["send_shapes"]
+            else "Null"
+        )
+        recv_shapes_str = (
+            ", ".join(map(str, stats["recv_shapes"]))
+            if stats["recv_shapes"]
+            else "Null"
+        )
 
         tracer.log(
             f"[BATCH] global rank {tracer.config.global_rank} - "
@@ -188,4 +232,5 @@ def create_batch_isend_irecv_wrapper(original_func, tracer):
             f"ops count: {len(ops_list)}"
         )
         return result
+
     return wrapper
