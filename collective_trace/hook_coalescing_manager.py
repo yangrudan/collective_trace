@@ -35,6 +35,9 @@ def print_timing(details):
 
 def hook_coalescing_manager():
     """hook _coalescing_manager"""
+    if distributed_c10d is None:
+        raise ImportError("Failed to import torch.distributed.distributed_c10d")
+
     # pylint: disable=protected-access
     origin_coalescing_manager = distributed_c10d._coalescing_manager
 
@@ -49,7 +52,6 @@ def hook_coalescing_manager():
             total_start = time.perf_counter()
             timing_details = {}
             reqs_list = reqs if reqs is not None else []
-
 
             with origin_coalescing_manager(
                 group=group, device=device, reqs=reqs_list
@@ -80,6 +82,7 @@ def hook_coalescing_manager():
                 device: device
                 async_ops: whether to use async ops
             """
+            print("======!!!!hooked _coalescing_manager enter \n")
             total_start = time.perf_counter()
             timing_details = {}
             wait_called = False
@@ -140,6 +143,7 @@ def hook_coalescing_manager():
 
     # pylint: disable=protected-access
     distributed_c10d._coalescing_manager = timed_coalescing_manager
+
 
 # ------------------------------
 # 使用示例
