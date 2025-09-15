@@ -14,7 +14,6 @@ from typing import Optional, List
 try:
     import torch
     import torch.distributed as dist
-    from torch.distributed import distributed_c10d
 except ImportError:
     pass
 
@@ -35,11 +34,8 @@ def print_timing(details):
 
 def hook_coalescing_manager():
     """hook _coalescing_manager"""
-    if distributed_c10d is None:
-        raise ImportError("Failed to import torch.distributed.distributed_c10d")
-
     # pylint: disable=protected-access
-    origin_coalescing_manager = distributed_c10d._coalescing_manager
+    origin_coalescing_manager = dist._coalescing_manager
 
     if IS_OLD_VERSION:
         # PyTorch (<=2.0.1)，_coalescing_manager参数为(group, device, reqs)
@@ -142,7 +138,7 @@ def hook_coalescing_manager():
                         print_timing(timing_details)
 
     # pylint: disable=protected-access
-    distributed_c10d._coalescing_manager = timed_coalescing_manager
+    dist._coalescing_manager = timed_coalescing_manager
 
 
 # ------------------------------

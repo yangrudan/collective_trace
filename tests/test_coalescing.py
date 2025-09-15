@@ -2,8 +2,7 @@ import argparse
 import torch
 import torch.distributed as dist
 
-from torch.distributed.distributed_c10d import _coalescing_manager
-
+from torch.distributed import _coalescing_manager
 from collective_trace.collective_trace import trace_all_collectives
 
 
