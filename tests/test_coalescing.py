@@ -5,6 +5,16 @@ import torch.distributed as dist
 from torch.distributed import _coalescing_manager
 from collective_trace.collective_trace import trace_all_collectives
 
+import sys
+
+def trace_assign(frame, event, arg):
+    if event == "assign":
+        if frame.f_code.co_name == "_coalescing_manager":
+            print(f"_coalescing_manager modified at: {frame.f_code.co_filename}:{frame.f_lineno}")
+    return trace_assign
+
+sys.settrace(trace_assign)
+
 
 def main():
     parser = argparse.ArgumentParser()

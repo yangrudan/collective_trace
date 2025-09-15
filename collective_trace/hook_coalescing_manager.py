@@ -23,6 +23,7 @@ TORCH_MAJOR = int(TORCH_VERSION[0])
 TORCH_MINOR = int(TORCH_VERSION[1])
 
 IS_OLD_VERSION = (TORCH_MAJOR < 2) or (TORCH_MAJOR == 2 and TORCH_MINOR <= 0)
+print(f"IS_OLD_VERSION: {IS_OLD_VERSION}, Torch version: {torch.__version__}")
 
 
 def print_timing(details):
@@ -34,6 +35,7 @@ def print_timing(details):
 
 def hook_coalescing_manager():
     """hook _coalescing_manager"""
+    print("=== Entering hook_coalescing_manager ===")  # 新增
     # pylint: disable=protected-access
     origin_coalescing_manager = dist._coalescing_manager
 
@@ -137,6 +139,7 @@ def hook_coalescing_manager():
                     if not async_ops:
                         print_timing(timing_details)
 
+    print(f"=== Replaced _coalescing_manager: {dist._coalescing_manager.__name__} ===")
     # pylint: disable=protected-access
     dist._coalescing_manager = timed_coalescing_manager
 
