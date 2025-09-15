@@ -46,7 +46,6 @@ def hook_coalescing_manager():
             device: Optional[torch.device] = None,
             reqs: Optional[List] = None,
         ):
-            # 记录开始时间
             total_start = time.perf_counter()
             timing_details = {}
             reqs_list = reqs if reqs is not None else []
@@ -62,11 +61,10 @@ def hook_coalescing_manager():
                     context_duration = context_end - total_start
                     timing_details["context_duration"] = context_duration
 
-            # 处理计时结果
             timing_details["total_duration"] = context_duration
             print_timing(timing_details)
     else:
-        # 适配高版本PyTorch (>=2.0.2)，_coalescing_manager参数为(group, device, async_ops)
+        # PyTorch (>=2.0.2)，_coalescing_manager(group, device, async_ops)
 
         @contextmanager
         def timed_coalescing_manager(
@@ -75,18 +73,13 @@ def hook_coalescing_manager():
             async_ops: bool = False,
         ):
             """
-            灵活的合并通信计时管理器，支持cm.wait()在with块内外调用
-
-            异步模式下：
-            - 若在with块内调用cm.wait()：计时包含等待时间
-            - 若在with块外调用cm.wait()：仍能捕获等待时间并在最终输出
+            Context manager for timing _coalescing_manager
 
             Args:
-                group: 进程组
-                device: 设备
-                async_ops: 是否异步执行
+                group: ProcessGroup
+                device: device
+                async_ops: whether to use async ops
             """
-            # 记录整个操作的开始时间
             total_start = time.perf_counter()
             timing_details = {}
             wait_called = False
@@ -145,50 +138,7 @@ def hook_coalescing_manager():
                     if not async_ops:
                         print_timing(timing_details)
 
-            # # with块退出后，处理计时（此时可能已调用或未调用wait）
-            # if async_ops:
-            #     # 异步模式处理
-            #     if not wait_called:
-            #         # 用户可能在with块外调用wait，需要额外处理
-            #         # 这里使用装饰器模式包装wait方法，确保最终能捕获时间
-            #         original_wait = timed_cm.wait
-
-            #         def wrapped_wait():
-            #             nonlocal wait_called, wait_duration
-            #             if not wait_called:
-            #                 start = time.perf_counter()
-            #                 result = original_wait()
-            #                 wait_duration = time.perf_counter() - start
-            #                 wait_called = True
-            #                 # 重新计算总耗时
-            #                 timing_details["wait_duration"] = wait_duration
-            #                 timing_details["total_duration"] = (
-            #                     total_start
-            #                     + context_duration
-            #                     + wait_duration
-            #                     - total_start
-            #                 )
-            #                 # 触发日志回调
-            #                 print_timing(timing_details)
-            #                 return result
-            #             return original_wait()
-
-            #         timed_cm.wait = wrapped_wait
-            #         timing_details["wait_duration"] = wait_duration
-            #     else:
-            #         # wait在with块内已调用
-            #         timing_details["wait_duration"] = wait_duration
-            #         timing_details["total_duration"] = context_duration + wait_duration
-            # else:
-            #     # 同步模式处理
-            #     timing_details["total_duration"] = context_duration
-
-            # # 如果wait已在with块内调用，直接输出结果
-            # if async_ops and wait_called:
-            #     print_timing(timing_details)
-
     _coalescing_manager = timed_coalescing_manager
-
 
 # ------------------------------
 # 使用示例

@@ -1,7 +1,7 @@
 """
 Detect if a function in collective operation is timed out
 """
-
+import os
 import time
 import threading
 
@@ -94,3 +94,37 @@ class OperationTimer:
             return not is_completed and (
                 time.perf_counter() - start_time > self.timeout_threshold
             )
+
+class TimeOutDaemon(OperationTimer):
+    """
+    Daemon thread class that monitors and handles timeouts for
+    collective operations.
+
+    This class retrieves the timeout threshold from environment
+    variables or parameters,creates and manages a timer, and
+    invokes the specified callback function when a timeout occurs.
+    """
+
+    # Define default timeout threshold as integer
+    DEFAULT_TIMEOUT_THRESHOLD = 480  # 8 minutes (integer value)
+
+    def __init__(self, callback):
+        """Initialize a TimeOutDaemon instance"""
+        timeout_threshold = self._resolve_timeout_threshold()
+        super().__init__(timeout_threshold, callback)
+        self.start()  # Start the monitoring thread in the constructor
+
+    def _resolve_timeout_threshold(self):
+        """Resolve the timeout threshold with priority: environment variable > default value"""
+        env_timeout = os.environ.get("COLLECTIVE_TIMEOUT")
+        if env_timeout is not None:
+            try:
+                return int(env_timeout)
+            except ValueError:
+                pass
+
+        return self.DEFAULT_TIMEOUT_THRESHOLD
+
+    def get_timeout_threshold(self):
+        """Get the currently set timeout threshold in seconds"""
+        return self.timeout_threshold
