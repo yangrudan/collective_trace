@@ -1,11 +1,14 @@
 """
 This module manages operation timeouts using a daemon process.
 """
+
 from .timeout_daemon import TimeOutDaemon
+
 
 class TimeoutManager:
     """
     This class manages operation timeouts using a daemon process."""
+
     def __init__(self, logger, timeout_callback):
         """Initialize the timeout manager."""
         self.logger = logger
@@ -34,4 +37,3 @@ class TimeoutManager:
     def stop(self):
         """Stop the timeout manager."""
         self.timeout_daemon.stop()
-        

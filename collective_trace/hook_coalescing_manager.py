@@ -32,11 +32,13 @@ def print_timing(details):
         print(f"  {name}: {duration:.6f}秒")
 
 
+# pylint: disable=protected-access
 def hook_coalescing_manager():
     """hook _coalescing_manager"""
-    print("=== Entering hook_coalescing_manager ===")  # 新增
-    # pylint: disable=protected-access
-    origin_coalescing_manager = dist._coalescing_manager
+    if IS_OLD_VERSION:
+        origin_coalescing_manager = dist.distributed_c10d._coalescing_manager
+    else:
+        origin_coalescing_manager = dist._coalescing_manager
 
     if IS_OLD_VERSION:
         # PyTorch (<=2.0.1)，_coalescing_manager参数为(group, device, reqs)
