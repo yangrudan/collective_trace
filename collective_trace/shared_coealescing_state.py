@@ -15,6 +15,7 @@ class CoalescingState:
         self.active_cm_id: Optional[int] = None  # current active context manager id
         self.counter: Dict[int, int] = {}  # suche as {cm_id: counter}
         self.names: Dict[int, str] = {}  # such as {cm_id: name}
+        self.sizes: Dict[int, int] = {}  # such as {cm_id: size}
 
     def reset(self):
         """
