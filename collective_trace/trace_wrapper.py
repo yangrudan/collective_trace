@@ -78,7 +78,10 @@ def create_function_wrapper(func_name, orig_func, tracer):
             cm_id = coalescing_state.active_cm_id
             coalescing_state.counter[cm_id] = coalescing_state.counter.get(cm_id, 0) + 1
             coalescing_state.names[cm_id] = func_name
-            coalescing_state.sizes[cm_id] += tensor_info["size"]
+            if coalescing_state.sizes.get(cm_id) is None:
+                coalescing_state.sizes[cm_id] = tensor_info["size"]
+            else:
+                coalescing_state.sizes[cm_id] += tensor_info["size"]
 
         cuda_sync()
         start_time = time.perf_counter()

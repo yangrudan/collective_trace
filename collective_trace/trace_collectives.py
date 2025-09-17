@@ -158,7 +158,6 @@ class CollectiveTracer:
 
         hook_coalescing_manager(self)
         print("Applied hook to _coalescing_manager")
-        print(f"After hook: {dist._coalescing_manager.__name__}")  # pylint: disable=protected-access
 
     def remove_hooks(self):
         """Remove all tracing hooks from distributed functions"""
