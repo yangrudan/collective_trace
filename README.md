@@ -146,6 +146,19 @@ torchrun --nproc_per_node=4 -m collective_trace.tests.test_in_cpu --sync_mode
 torchrun --nproc_per_node=4 -m collective_trace.tests.test_rs_tensor
 ```
 
+#### _coalescing_manager测试
+
+```bash
+torchrun --nproc_per_node=4 -m collective_trace.tests.test_coalescing
+```
+
+### 4.3 贡献指南
+
+欢迎通过以下方式参与项目开发：
+
+- 提交 Issue 报告 bug 或提出功能建议
+- 提交 Pull Request 贡献代码（请遵循项目代码风格）
+
 ## 5. 日志格式说明
 
 追踪日志包含通信操作的详细信息，格式示例：
