@@ -1,14 +1,10 @@
 """
 hook _coalesing_manager
-
-1. 注意torch版本, 低版本无_CoalesingManager,  _coalescing_manager参数为(group, device, reqs)!!
-2. 注意hook时机, 在torch.distributed.distributed_c10d._coalescing_manager被赋值之前
-3. TODO 捕获合并的原语名称, 便于后续统计
-4. from 方式可能无法替换成功
 """
+
 import time
 from contextlib import contextmanager
-from typing import Optional, List
+from typing import Optional
 
 try:
     import torch
@@ -25,43 +21,38 @@ IS_OLD_VERSION = (TORCH_MAJOR < 2) or (TORCH_MAJOR == 2 and TORCH_MINOR <= 0)
 print(f"IS_OLD_VERSION: {IS_OLD_VERSION}, Torch version: {torch.__version__}")
 
 
-def print_timing(details):
-    """tmp print timing results"""
-    print("======== timing details =======:")
-    for name, duration in details.items():
-        print(f"  {name}: {duration:.6f}秒")
-
-
-def hook_coalescing_manager():
+def hook_coalescing_manager(tracer):
     """hook _coalescing_manager"""
-    print("=== Entering hook_coalescing_manager ===")  # 新增
+    if IS_OLD_VERSION:
+        return  # 低版本暂不支持hook
+
     # pylint: disable=protected-access
     origin_coalescing_manager = dist._coalescing_manager
 
     if IS_OLD_VERSION:
-        # PyTorch (<=2.0.1)，_coalescing_manager参数为(group, device, reqs)
-        @contextmanager
-        def timed_coalescing_manager(
-            group: Optional[dist.ProcessGroup] = None,
-            device: Optional[torch.device] = None,
-            reqs: Optional[List] = None,
-        ):
-            total_start = time.perf_counter()
-            timing_details = {}
-            reqs_list = reqs if reqs is not None else []
+        pass
+        # # PyTorch (<=2.0.1)，_coalescing_manager参数为(group, device, reqs)
+        # @contextmanager
+        # def timed_coalescing_manager(
+        #     group: Optional[dist.ProcessGroup] = None,
+        #     device: Optional[torch.device] = None,
+        #     reqs: Optional[List] = None,
+        # ):
+        #     total_start = time.perf_counter()
+        #     timing_details = {}
+        #     reqs_list = reqs if reqs is not None else []
 
-            with origin_coalescing_manager(
-                group=group, device=device, reqs=reqs_list
-            ) as _:
-                try:
-                    yield
-                finally:
-                    context_end = time.perf_counter()
-                    context_duration = context_end - total_start
-                    timing_details["context_duration"] = context_duration
+        #     with origin_coalescing_manager(
+        #         group=group, device=device, reqs=reqs_list
+        #     ) as _:
+        #         try:
+        #             yield
+        #         finally:
+        #             context_end = time.perf_counter()
+        #             context_duration = context_end - total_start
+        #             timing_details["context_duration"] = context_duration
 
-            timing_details["total_duration"] = context_duration
-            print_timing(timing_details)
+        #     timing_details["total_duration"] = context_duration
     else:
         # PyTorch (>=2.0.2)，_coalescing_manager(group, device, async_ops)
 
@@ -79,13 +70,13 @@ def hook_coalescing_manager():
                 device: device
                 async_ops: whether to use async ops
             """
-            print("======!!!!hooked _coalescing_manager enter \n")
-            total_start = time.perf_counter()
-            timing_details = {}
-            wait_called = False
-            wait_duration = 0.0
+            tracer.update_group_info(group)
 
+            total_start = time.perf_counter()
             work_items = []
+            call_count = 0
+            size_bytes = 0
+            shapes = []
 
             class TimedCoalescingWrapper:
                 """
@@ -93,31 +84,29 @@ def hook_coalescing_manager():
 
                 def __init__(self, inner_obj):
                     self.inner_obj = inner_obj
-                    self._wait_start = None
-                    self._wait_duration = 0.0
 
                 def append(self, work):
                     """
                     Append a work item to the list of work items"""
+                    nonlocal call_count, size_bytes, shapes
                     work_items.append(work)
+                    call_count += 1
+                    try:
+                        tensor = work.tensor
+                        size_bytes += tensor.element_size() * tensor.numel()
+                        shapes.append(tuple(tensor.shape))
+                    except AttributeError:
+                        pass
                     if hasattr(self.inner_obj, "append"):
                         self.inner_obj.append(work)
 
                 def wait(self):
                     """
                     Wait for all work items to complete"""
-                    nonlocal wait_called, wait_duration
-                    self._wait_start = time.perf_counter()
-
                     if hasattr(self.inner_obj, "wait"):
                         result = self.inner_obj.wait()
                     else:
                         result = [work.wait() for work in work_items]
-
-                    self._wait_duration = time.perf_counter() - self._wait_start
-                    wait_duration = self._wait_duration
-                    wait_called = True
-                    print("wait duration: ", self._wait_duration)
                     return result
 
                 def __getattr__(self, name):
@@ -131,12 +120,25 @@ def hook_coalescing_manager():
                 try:
                     yield timed_cm
                 finally:
-                    context_end = time.perf_counter()
-                    context_duration = context_end - total_start
-                    timing_details["context_duration"] = context_duration
+                    end_time = time.perf_counter()
+                    duration_ms = (end_time - total_start) * 1000
+                    size_mb = size_bytes / (1024 * 1024) if size_bytes > 0 else 0.0
+                    shape_str = (
+                        shapes[0] if len(shapes) == 1 else f"[{len(shapes)} ops]"
+                    )
 
-                    if not async_ops:
-                        print_timing(timing_details)
+                    # 使用tracer.log()输出日志
+                    tracer.log(
+                        f"[TRACE] global rank {tracer.config.global_rank} "
+                        f"in GROUP_{tracer.group_info.my_idx_in_group} "
+                        f"- coalesced_ops - async:{1 if async_ops else 0}, "
+                        f"Size: {size_mb:.2f} MB, "
+                        f"Shape: {shape_str}, "
+                        f"Duration: {duration_ms:.3f} ms, "
+                        f"GROUP size {tracer.group_info.my_size}  = "
+                        f"{tracer.group_info.participate_ranks}, "
+                        f"call count: {call_count}"
+                    )
 
     # pylint: disable=protected-access
     dist._coalescing_manager = timed_coalescing_manager

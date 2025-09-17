@@ -3,7 +3,6 @@
 import time
 import uuid
 from functools import wraps
-from .get_group import get_participating_ranks
 from .trace_utils import cuda_sync, extract_tensor_info
 
 try:
@@ -72,12 +71,7 @@ def create_function_wrapper(func_name, orig_func, tracer):
 
         # Update group info
         group = kwargs.get("group") or (args[2] if len(args) > 2 else None)
-        (
-            tracer.group_info.my_rank,
-            tracer.group_info.my_size,
-            tracer.group_info.my_idx_in_group,
-            tracer.group_info.participate_ranks,
-        ) = get_participating_ranks(group)
+        tracer.update_group_info(group)
 
         cuda_sync()
         start_time = time.perf_counter()

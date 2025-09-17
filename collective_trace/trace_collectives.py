@@ -1,11 +1,13 @@
 """
 Core hook modlue
 """
+
 import csv
 from functools import wraps
 from collections import defaultdict
 import os
 import signal
+
 try:
     import torch
     import torch.distributed as dist
@@ -17,18 +19,25 @@ from .timeout_manager import TimeoutManager
 from .trace_wrapper import (
     create_function_wrapper,
     create_barrier_wrapper,
-    create_batch_isend_irecv_wrapper
+    create_batch_isend_irecv_wrapper,
 )
+from .get_group import get_participating_ranks
 
 from .hook_coalescing_manager import hook_coalescing_manager
 
 function_names = [
-    "all_reduce", "all_gather", "reduce_scatter", "broadcast",
-"all_gather_into_tensor", "reduce_scatter_tensor",
+    "all_reduce",
+    "all_gather",
+    "reduce_scatter",
+    "broadcast",
+    "all_gather_into_tensor",
+    "reduce_scatter_tensor",
 ]
+
 
 class CollectiveTracer:
     """Trace collective operations for distributed training with timeout detection."""
+
     def __init__(self, trace_file=None, verbose=True):
         self.config = TraceConfig(
             trace_file=trace_file,
@@ -51,22 +60,37 @@ class CollectiveTracer:
             if hasattr(dist, func_name):
                 self.hooked_functions[func_name] = getattr(dist, func_name)
             else:
-                print(f"!!! Function {func_name} not found in torch.distributed, skipped")
+                print(
+                    f"!!! Function {func_name} not found in torch.distributed, skipped"
+                )
 
         if not self.hooked_functions:
             print("!!! WARNING !!! No functions to trace found")
+
+    def update_group_info(self, group):
+        """Update group info from the given group."""
+        (
+            self.group_info.my_rank,
+            self.group_info.my_size,
+            self.group_info.my_idx_in_group,
+            self.group_info.participate_ranks,
+        ) = get_participating_ranks(group)
 
     def _timeout_callback(self, op_id, func_name, is_async, timed_out_type):
         """Timeout callback: log timeout events"""
         async_str = "async" if is_async else "sync"
         if timed_out_type == "unfinished":
-            msg = f"[TIMEOUT] {async_str} Operation {func_name} (ID: {op_id}) " \
-                  f"timed out without completion! " \
-                  f"Exceeded threshold {self.timeout_manager.get_timeout_threshold()}s"
+            msg = (
+                f"[TIMEOUT] {async_str} Operation {func_name} (ID: {op_id}) "
+                f"timed out without completion! "
+                f"Exceeded threshold {self.timeout_manager.get_timeout_threshold()}s"
+            )
         else:
-            msg = f"[TIMEOUT] {async_str} Operation {func_name} (ID: {op_id}) " \
-                  f"completed but timed out! " \
-                  f"Exceeded threshold {self.timeout_manager.get_timeout_threshold()}s"
+            msg = (
+                f"[TIMEOUT] {async_str} Operation {func_name} (ID: {op_id}) "
+                f"completed but timed out! "
+                f"Exceeded threshold {self.timeout_manager.get_timeout_threshold()}s"
+            )
 
         self.log(msg)
         os.kill(os.getpid(), signal.SIGUSR1)
@@ -81,6 +105,7 @@ class CollectiveTracer:
 
     def with_global_rank(self, func):
         """Decorator that updates global rank before calling the wrapped function"""
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             if dist.is_available() and dist.is_initialized():
@@ -89,9 +114,10 @@ class CollectiveTracer:
                 if self.config.async_logger is None and self.config.trace_file:
                     self.config.async_logger = RankedAsyncLogger(
                         base_log_file=self.config.trace_file,
-                        rank=self.config.global_rank
+                        rank=self.config.global_rank,
                     )
             return func(*args, **kwargs)
+
         return wrapper
 
     def create_trace_entry(self, func_name, start_time, duration, tensor_info):
@@ -113,12 +139,16 @@ class CollectiveTracer:
         for func_name, orig_func in self.hooked_functions.items():
             if hasattr(dist, func_name):
                 self.original_functions[func_name] = getattr(dist, func_name)
-                setattr(dist, func_name, create_function_wrapper(func_name, orig_func, self))
+                setattr(
+                    dist, func_name, create_function_wrapper(func_name, orig_func, self)
+                )
                 print(f"Applied hook to function: {func_name}")
 
         if hasattr(dist, "batch_isend_irecv"):
             self.original_functions["batch_isend_irecv"] = dist.batch_isend_irecv
-            dist.batch_isend_irecv = create_batch_isend_irecv_wrapper(dist.batch_isend_irecv, self)
+            dist.batch_isend_irecv = create_batch_isend_irecv_wrapper(
+                dist.batch_isend_irecv, self
+            )
             print("Applied hook to batch_isend_irecv")
 
         if hasattr(dist, "barrier"):
@@ -126,7 +156,7 @@ class CollectiveTracer:
             dist.barrier = create_barrier_wrapper(dist.barrier, self)
             print("Applied hook to barrier")
 
-        hook_coalescing_manager()
+        hook_coalescing_manager(self)
         print("Applied hook to hook_coalescing_manager")
         print(f"After hook: {dist._coalescing_manager.__name__}")  # pylint: disable=protected-access
 
@@ -163,5 +193,5 @@ class CollectiveTracer:
     def __del__(self):
         """Clean up resources and stop timer"""
         self.timeout_manager.stop()
-        if hasattr(self, 'config') and self.config.async_logger:
+        if hasattr(self, "config") and self.config.async_logger:
             self.config.async_logger.close()
