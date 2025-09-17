@@ -2,9 +2,12 @@
 hook _coalesing_manager
 """
 
+import uuid
 import time
 from contextlib import contextmanager
 from typing import Optional
+
+from .shared_coealescing_state import coalescing_state
 
 try:
     import torch
@@ -75,8 +78,6 @@ def hook_coalescing_manager(tracer):
             total_start = time.perf_counter()
             work_items = []
             call_count = 0
-            size_bytes = 0
-            shapes = []
 
             class TimedCoalescingWrapper:
                 """
@@ -88,15 +89,7 @@ def hook_coalescing_manager(tracer):
                 def append(self, work):
                     """
                     Append a work item to the list of work items"""
-                    nonlocal call_count, size_bytes, shapes
                     work_items.append(work)
-                    call_count += 1
-                    try:
-                        tensor = work.tensor
-                        size_bytes += tensor.element_size() * tensor.numel()
-                        shapes.append(tuple(tensor.shape))
-                    except AttributeError:
-                        pass
                     if hasattr(self.inner_obj, "append"):
                         self.inner_obj.append(work)
 
@@ -112,6 +105,10 @@ def hook_coalescing_manager(tracer):
                 def __getattr__(self, name):
                     return getattr(self.inner_obj, name)
 
+            cm_id = uuid.uuid4().hex
+            coalescing_state.active_cm_id = cm_id
+            coalescing_state.counter[cm_id] = 0
+
             with origin_coalescing_manager(
                 group=group, device=device, async_ops=async_ops
             ) as original_cm:
@@ -122,23 +119,24 @@ def hook_coalescing_manager(tracer):
                 finally:
                     end_time = time.perf_counter()
                     duration_ms = (end_time - total_start) * 1000
-                    size_mb = size_bytes / (1024 * 1024) if size_bytes > 0 else 0.0
-                    shape_str = (
-                        shapes[0] if len(shapes) == 1 else f"[{len(shapes)} ops]"
-                    )
 
                     # 使用tracer.log()输出日志
                     tracer.log(
-                        f"[TRACE] global rank {tracer.config.global_rank} "
+                        f"[COALESCE] global rank {tracer.config.global_rank} "
                         f"in GROUP_{tracer.group_info.my_idx_in_group} "
                         f"- coalesced_ops - async:{1 if async_ops else 0}, "
-                        f"Size: {size_mb:.2f} MB, "
-                        f"Shape: {shape_str}, "
+                        # f"Size: {size_mb:.2f} MB, "
+                        # f"Shape: {shape_str}, "
                         f"Duration: {duration_ms:.3f} ms, "
                         f"GROUP size {tracer.group_info.my_size}  = "
                         f"{tracer.group_info.participate_ranks}, "
                         f"call count: {call_count}"
                     )
+
+                    # cleanup
+                    del coalescing_state.counter[cm_id]
+                    if coalescing_state.active_cm_id == cm_id:
+                        coalescing_state.active_cm_id = None
 
     # pylint: disable=protected-access
     dist._coalescing_manager = timed_coalescing_manager

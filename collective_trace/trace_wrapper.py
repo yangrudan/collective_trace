@@ -3,6 +3,7 @@
 import time
 import uuid
 from functools import wraps
+from .shared_coealescing_state import coalescing_state
 from .trace_utils import cuda_sync, extract_tensor_info
 
 try:
@@ -72,6 +73,10 @@ def create_function_wrapper(func_name, orig_func, tracer):
         # Update group info
         group = kwargs.get("group") or (args[2] if len(args) > 2 else None)
         tracer.update_group_info(group)
+
+        if coalescing_state.active_cm_id is not None:
+            cm_id = coalescing_state.active_cm_id
+            coalescing_state.counter[cm_id] = coalescing_state.counter.get(cm_id, 0) + 1
 
         cuda_sync()
         start_time = time.perf_counter()
