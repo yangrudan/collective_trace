@@ -77,6 +77,7 @@ def create_function_wrapper(func_name, orig_func, tracer):
         if coalescing_state.active_cm_id is not None:
             cm_id = coalescing_state.active_cm_id
             coalescing_state.counter[cm_id] = coalescing_state.counter.get(cm_id, 0) + 1
+            coalescing_state.names[cm_id] = func_name
 
         cuda_sync()
         start_time = time.perf_counter()

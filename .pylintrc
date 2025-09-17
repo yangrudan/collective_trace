@@ -6,3 +6,4 @@ generated-members=torch.*
 disable=
     W0603,   # Using the global statement
     W0143,   # Comparing against a callable
+    R0903,   # Too few public methods
