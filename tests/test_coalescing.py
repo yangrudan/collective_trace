@@ -31,21 +31,28 @@ def main():
     print(f"!!!Test hook After: {dist._coalescing_manager.__name__}")    
     print(f"!!!Test hook After ccccccccccccccccccccccccc: {_coalescing_manager.__name__}")    
     # 示例1：异步模式 - wait在with块内调用
-#    print("\n=== 异步模式（wait在with块内） ===")
-#    tensors = [torch.randn(1024, device=device) for _ in range(4)]
-#    with _coalescing_manager(device=device, async_ops=True) as cm:
-#        for tensor in tensors:
-#            dist.all_reduce(tensor)
-#        cm.wait()  # 在with块内调用wait
+    print("\n=== 异步模式（wait在with块内） ===")
+    tensors = [torch.randn(1024, device=device) for _ in range(4)]
+    with _coalescing_manager(device=device, async_ops=True) as cm:
+        for tensor in tensors:
+            dist.all_reduce(tensor)
+        cm.wait()  # 在with块内调用wait
 
     # 示例2：异步模式 - wait在with块外调用
     print("\n=== 异步模式（wait在with块外） ===")
-    tensors = [torch.randn(1024, device=device) for _ in range(4)]
+    tensors = [torch.randn(4*1024*1024, device=device) for _ in range(4)]
     with _coalescing_manager(device=device, async_ops=True) as cm:
         for tensor in tensors:
             dist.all_reduce(tensor)
     # 在with块外调用wait
     cm.wait()
-
+   
+    print("\n=== 同步模式 ===")
+    tensors = [torch.randn(4*1024*1024, device=device) for _ in range(4)]
+    with _coalescing_manager(device=device) as cm:
+        for tensor in tensors:
+            dist.all_reduce(tensor)
+    # 在with块外调用wait
+    cm.wait()
 
 main()

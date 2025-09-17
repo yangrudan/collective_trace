@@ -3,7 +3,7 @@
 import time
 import uuid
 from functools import wraps
-from .get_group import get_participating_ranks
+from .shared_coealescing_state import coalescing_state
 from .trace_utils import cuda_sync, extract_tensor_info
 
 try:
@@ -72,12 +72,16 @@ def create_function_wrapper(func_name, orig_func, tracer):
 
         # Update group info
         group = kwargs.get("group") or (args[2] if len(args) > 2 else None)
-        (
-            tracer.group_info.my_rank,
-            tracer.group_info.my_size,
-            tracer.group_info.my_idx_in_group,
-            tracer.group_info.participate_ranks,
-        ) = get_participating_ranks(group)
+        tracer.update_group_info(group)
+
+        if coalescing_state.active_cm_id is not None:
+            cm_id = coalescing_state.active_cm_id
+            coalescing_state.counter[cm_id] = coalescing_state.counter.get(cm_id, 0) + 1
+            coalescing_state.names[cm_id] = func_name
+            if coalescing_state.sizes.get(cm_id) is None:
+                coalescing_state.sizes[cm_id] = tensor_info["size"]
+            else:
+                coalescing_state.sizes[cm_id] += tensor_info["size"]
 
         cuda_sync()
         start_time = time.perf_counter()
