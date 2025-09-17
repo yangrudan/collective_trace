@@ -127,7 +127,7 @@ def hook_coalescing_manager(tracer):
                         f"- coalesced_ops - async:{1 if async_ops else 0}, "
                         f"conuters: {coalescing_state.counter.get(cm_id, 0)}, "
                         f"name: {coalescing_state.names.get(cm_id, 'unknown')}, "
-                        f"shapes: {coalescing_state.sizes.get(cm_id, 0)}, "
+                        f"sizes: {coalescing_state.sizes.get(cm_id, 0)}, "
                         f"Duration: {duration_ms:.3f} ms, "
                         f"GROUP size {tracer.group_info.my_size}  = "
                         f"{tracer.group_info.participate_ranks}, "
