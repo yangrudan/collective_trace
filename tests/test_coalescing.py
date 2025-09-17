@@ -46,6 +46,13 @@ def main():
             dist.all_reduce(tensor)
     # 在with块外调用wait
     cm.wait()
-
+   
+    print("\n=== 同步模式 ===")
+    tensors = [torch.randn(4*1024*1024, device=device) for _ in range(4)]
+    with _coalescing_manager(device=device) as cm:
+        for tensor in tensors:
+            dist.all_reduce(tensor)
+    # 在with块外调用wait
+    cm.wait()
 
 main()

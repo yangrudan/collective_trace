@@ -77,7 +77,6 @@ def hook_coalescing_manager(tracer):
 
             total_start = time.perf_counter()
             work_items = []
-            call_count = 0
 
             class TimedCoalescingWrapper:
                 """
@@ -131,7 +130,6 @@ def hook_coalescing_manager(tracer):
                         f"Duration: {duration_ms:.3f} ms, "
                         f"GROUP size {tracer.group_info.my_size}  = "
                         f"{tracer.group_info.participate_ranks}, "
-                        f"call count: {call_count}"
                     )
 
                     # cleanup
