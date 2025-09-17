@@ -40,7 +40,7 @@ def main():
 
     # 示例2：异步模式 - wait在with块外调用
     print("\n=== 异步模式（wait在with块外） ===")
-    tensors = [torch.randn(1024, device=device) for _ in range(40000)]
+    tensors = [torch.randn(4*1024*1024, device=device) for _ in range(4)]
     with _coalescing_manager(device=device, async_ops=True) as cm:
         for tensor in tensors:
             dist.all_reduce(tensor)
