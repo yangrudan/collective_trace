@@ -4,7 +4,7 @@ import time
 import uuid
 from functools import wraps
 from .shared_coealescing_state import coalescing_state
-from .trace_utils import cuda_sync, extract_tensor_info
+from .trace_utils import extract_tensor_info
 
 try:
     import torch.distributed as dist
@@ -31,7 +31,7 @@ class TimedWork:
         result = self.work.wait()
         self.tracer.timeout_manager.mark_completed(self.op_id)
 
-        cuda_sync()
+        # cuda_sync()
         end_time = time.perf_counter()
         duration = end_time - self.start_time
 
@@ -83,7 +83,7 @@ def create_function_wrapper(func_name, orig_func, tracer):
             else:
                 coalescing_state.sizes[cm_id] += tensor_info["size"]
 
-        cuda_sync()
+        # cuda_sync()
         start_time = time.perf_counter()
         is_async = kwargs.get("async_op", False)
         op_id = uuid.uuid4()
