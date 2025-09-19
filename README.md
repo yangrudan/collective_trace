@@ -32,6 +32,9 @@
 ```bash
 # 克隆仓库
 git clone https://github.com/yangrudan/collective_trace.git
+
+git submodule init + git submodule update 
+
 cd collective_trace
 
 #  editable 模式（方便开发调试）
@@ -151,13 +154,6 @@ torchrun --nproc_per_node=4 -m collective_trace.tests.test_rs_tensor
 ```bash
 torchrun --nproc_per_node=4 -m collective_trace.tests.test_coalescing
 ```
-
-### 4.3 贡献指南
-
-欢迎通过以下方式参与项目开发：
-
-- 提交 Issue 报告 bug 或提出功能建议
-- 提交 Pull Request 贡献代码（请遵循项目代码风格）
 
 ## 5. 日志格式说明
 

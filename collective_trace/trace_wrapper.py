@@ -3,6 +3,7 @@
 import time
 import uuid
 from functools import wraps
+from async_timer import AsyncTimer
 from .shared_coealescing_state import coalescing_state
 from .trace_utils import extract_tensor_info
 
@@ -15,10 +16,10 @@ except ImportError:
 class TimedWork:
     """Wrap async work to track completion and timing"""
 
-    def __init__(self, work, op_id, start_time, func_name, **kwargs):
+    def __init__(self, work, op_id, timer, func_name, **kwargs):
         self.work = work
         self.op_id = op_id
-        self.start_time = start_time
+        self.timer = timer
         self.func_name = func_name
         self.tensor_info = kwargs.get(
             "tensor_info", {"shape": "unknown", "dtype": "unknown", "size": 0}
@@ -32,11 +33,15 @@ class TimedWork:
         self.tracer.timeout_manager.mark_completed(self.op_id)
 
         # cuda_sync()
-        end_time = time.perf_counter()
-        duration = end_time - self.start_time
+        self.timer.wait()
+
+        while not self.timer.is_completed():
+            time.sleep(0.1)
+
+        duration = self.timer.get_elapsed()
 
         trace_entry = self.tracer.create_trace_entry(
-            self.func_name, self.start_time, duration, self.tensor_info
+            self.func_name, "", duration, self.tensor_info
         )
         self.tracer.trace_data.append(trace_entry)
 
@@ -84,7 +89,10 @@ def create_function_wrapper(func_name, orig_func, tracer):
                 coalescing_state.sizes[cm_id] += tensor_info["size"]
 
         # cuda_sync()
-        start_time = time.perf_counter()
+        start_time = time.time()  # tmp
+        timer = AsyncTimer()
+        timer.start()
+
         is_async = kwargs.get("async_op", False)
         op_id = uuid.uuid4()
 
@@ -93,7 +101,7 @@ def create_function_wrapper(func_name, orig_func, tracer):
             return TimedWork(
                 work,
                 op_id,
-                start_time,
+                timer,
                 func_name,
                 tensor_info=tensor_info,
                 tracer=tracer,
@@ -108,9 +116,12 @@ def create_function_wrapper(func_name, orig_func, tracer):
                 f"[ERROR] Synchronous operation {func_name} (ID: {op_id}) has timed out"
             )
 
+        timer.end()
+        while not timer.is_completed():
+            time.sleep(0.1)
+        duration = timer.get_elapsed()
+
         tracer.timeout_manager.mark_completed(op_id)
-        end_time = time.perf_counter()
-        duration = end_time - start_time
 
         trace_entry = tracer.create_trace_entry(
             func_name, start_time, duration, tensor_info
