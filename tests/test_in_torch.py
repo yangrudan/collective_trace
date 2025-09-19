@@ -23,6 +23,8 @@ def main():
     torch.cuda.set_device(rank)
     device = torch.device(f"cuda:{rank}")
 
+    dist.barrier(device_ids=[device.index])  # 指定设备，消除警告
+
     # Mock gradient
     gradient = torch.tensor([rank] * 3000, dtype=torch.float32, device=device)
     print(f"Rank {rank} 初始梯度: {gradient.cpu().numpy()}")
