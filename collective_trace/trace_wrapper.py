@@ -4,7 +4,7 @@ import time
 import uuid
 from functools import wraps
 from .shared_coealescing_state import coalescing_state
-from .trace_utils import cuda_sync, extract_tensor_info
+from .trace_utils import extract_tensor_info
 
 try:
     import torch.distributed as dist
