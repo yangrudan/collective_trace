@@ -24,7 +24,7 @@ def main():
     device = torch.device(f"cuda:{rank}")
 
     # Mock gradient
-    gradient = torch.tensor([rank] * 3, dtype=torch.float32, device=device)
+    gradient = torch.tensor([rank] * 3000, dtype=torch.float32, device=device)
     print(f"Rank {rank} 初始梯度: {gradient.cpu().numpy()}")
 
     if args.sync_mode:
