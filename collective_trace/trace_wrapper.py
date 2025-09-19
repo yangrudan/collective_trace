@@ -32,8 +32,7 @@ class TimedWork:
         result = self.work.wait()
         self.tracer.timeout_manager.mark_completed(self.op_id)
 
-        # cuda_sync()
-        self.timer.wait()
+        self.timer.end()
 
         while not self.timer.is_completed():
             time.sleep(0.1)
