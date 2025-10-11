@@ -1,10 +1,12 @@
 """
 Utility functions for tracing PyTorch operations.
 """
+
 try:
     import torch
 except ImportError:
     pass
+
 
 def cuda_sync():
     """Synchronize CUDA devices."""
@@ -49,4 +51,3 @@ def extract_tensor_info(args, kwargs):
         "dtype": tensor.dtype,
         "size": tensor.element_size() * tensor.numel(),
     }
-    

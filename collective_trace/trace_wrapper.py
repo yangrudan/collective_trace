@@ -2,15 +2,20 @@
 
 import time
 import uuid
-from functools import wraps
-from async_timer import AsyncTimer
-from .shared_coealescing_state import coalescing_state
-from .trace_utils import extract_tensor_info
 
+from functools import wraps
+
+import torch
 try:
     import torch.distributed as dist
 except ImportError:
     print("!!! PyTorch not found, skipped")
+
+from async_timer import AsyncTimer
+from .shared_coealescing_state import coalescing_state
+from .trace_utils import extract_tensor_info
+
+
 
 
 class TimedWork:
@@ -28,11 +33,15 @@ class TimedWork:
 
     def wait(self):
         """Wait for the work to complete"""
+        current_stream = torch.cuda.current_stream(torch.cuda.current_device())
+        stream_ptr = current_stream.cuda_stream
+        self.timer.start(stream_ptr)
+
         self.tracer.timeout_manager.register_operation(self.op_id, self.func_name, True)
         result = self.work.wait()
         self.tracer.timeout_manager.mark_completed(self.op_id)
 
-        self.timer.end()
+        self.timer.end(stream_ptr)
 
         while not self.timer.is_completed():
             time.sleep(0.1)
@@ -71,12 +80,11 @@ def create_function_wrapper(func_name, orig_func, tracer):
     @wraps(orig_func)
     def wrapper(*args, **kwargs):
         tensor_info = extract_tensor_info(args, kwargs)
-        shape = tensor_info["shape"] if tensor_info else "unknown"
-        tracer.call_counts[func_name][shape]["count"] += 1
+        tracer.call_counts[func_name] \
+            [tensor_info["shape"] if tensor_info else "unknown"]["count"] += 1
 
         # Update group info
-        group = kwargs.get("group") or (args[2] if len(args) > 2 else None)
-        tracer.update_group_info(group)
+        tracer.update_group_info(kwargs.get("group") or (args[2] if len(args) > 2 else None))
 
         if coalescing_state.active_cm_id is not None:
             cm_id = coalescing_state.active_cm_id
@@ -90,7 +98,6 @@ def create_function_wrapper(func_name, orig_func, tracer):
         # cuda_sync()
         start_time = time.time()  # tmp
         timer = AsyncTimer()
-        timer.start()
 
         is_async = kwargs.get("async_op", False)
         op_id = uuid.uuid4()
@@ -108,7 +115,16 @@ def create_function_wrapper(func_name, orig_func, tracer):
 
         # Synchronous operation
         tracer.timeout_manager.register_operation(op_id, func_name, is_async)
-        result = orig_func(*args, **kwargs)
+        kwargs_for_call = dict(kwargs)
+        kwargs_for_call["async_op"] = True
+        result = orig_func(*args, **kwargs_for_call)
+        # result = orig_func(*args, **kwargs)
+
+        current_stream = torch.cuda.current_stream(torch.cuda.current_device())
+        stream_ptr = current_stream.cuda_stream
+        timer.start(stream_ptr)
+        result.wait()
+        timer.end(stream_ptr)
 
         if tracer.timeout_manager.is_timed_out(op_id):
             tracer.log(
