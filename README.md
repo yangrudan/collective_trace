@@ -13,6 +13,7 @@
 - **多环境支持**：兼容 GPU（NCCL 后端）和 CPU（Gloo 后端）环境
 - **灵活集成**：一行代码即可接入现有训练流程，无需修改核心训练逻辑
 - **数据分析**：提供日志解析工具，可统计不同操作的调用次数、总耗时和平均耗时
+- **cuda流支持**：支持 CUDA 流的追踪计时
 
 ## 2. 环境要求
 
@@ -42,6 +43,9 @@ pip install -e .
 
 # 或常规安装
 pip install .
+
+cd lib_async_timer
+python setup.py install
 ```
 
 #### 编译发布（[已发布PyPI](https://pypi.org/project/collective-trace/)）
