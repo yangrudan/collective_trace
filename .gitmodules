@@ -1,0 +1,3 @@
+[submodule "lib_async_timer"]
+	path = lib_async_timer
+	url = https://github.com/yangrudan/py_cuda_event_query

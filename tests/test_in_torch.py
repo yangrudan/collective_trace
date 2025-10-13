@@ -23,8 +23,10 @@ def main():
     torch.cuda.set_device(rank)
     device = torch.device(f"cuda:{rank}")
 
+    dist.barrier(device_ids=[device.index])  # 指定设备，消除警告
+
     # Mock gradient
-    gradient = torch.tensor([rank] * 3, dtype=torch.float32, device=device)
+    gradient = torch.tensor([rank] * 3000, dtype=torch.float32, device=device)
     print(f"Rank {rank} 初始梯度: {gradient.cpu().numpy()}")
 
     if args.sync_mode:
@@ -32,10 +34,6 @@ def main():
     else:
         work = dist.all_reduce(gradient, op=dist.ReduceOp.SUM, async_op=True)
 
-    # Mock computation to simulate workload
-    dummy_tensor = torch.ones(1, device=device)
-    for _ in range(1000):
-        dummy_tensor = dummy_tensor * 2 + 1
 
     if args.sync_mode:
         print(f"Rank {rank} [同步]all_reduce后梯度: {gradient.cpu().numpy()}")
