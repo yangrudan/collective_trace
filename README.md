@@ -6,6 +6,10 @@
 
 `collective_trace` 是一个轻量级分布式训练集体通信操作追踪工具，专注于帮助开发者解析和优化分布式训练中的通信瓶颈。通过对 PyTorch 等框架的集体通信操作（如 `allreduce`、`broadcast`、`all_gather` 等）进行无侵入式的 monkey-patching 追踪，可记录操作类型、耗时、参与进程、数据量等关键信息，为分布式训练性能分析提供数据支持。
 
+# 维护与变更
+
+由于设计不完善, 现停止本仓库的维护, 改至[group_cc_hook](https://github.com/yangrudan/group_cc_hook) 🐒
+
 ## 1. 核心功能
 
 - **全面追踪**：支持 PyTorch 主流集体通信操作（`all_reduce`、`all_gather`、`reduce_scatter` 等）及同步/异步模式
